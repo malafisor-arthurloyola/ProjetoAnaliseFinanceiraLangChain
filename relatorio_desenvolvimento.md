@@ -13,12 +13,14 @@ Abaixo está o cronograma e o status das etapas planejadas para a entrega expres
   - Setup do cofre Obsidian Zettelkasten para persistência de conhecimento.
 - [x] **Etapa 2: Configuração de Ambiente e Dependências**
   - Criação do ambiente virtual (`venv`) e instalação dos pacotes necessários (`streamlit`, `chromadb`, `python-bcb`, `yfinance`, `langchain-community`, `langchain-chroma`).
-- [ ] **Etapa 3: Ingestão e Estruturação de Dados**
-  - Integração do script da CVM para baixar e processar ofertas públicas.
-  - Setup do scraping/coleta de ofertas vigentes de mercado.
-  - Conexão com a API do Banco Central (SGS) para obter IPCA, Selic e CDI.
-- [ ] **Etapa 4: Construção da Base Vetorial (ChromaDB)**
-  - Armazenamento das emissões passadas e setup de busca semântica para encontrar comparativos históricos.
+- [x] **Etapa 3: Ingestão e Estruturação de Dados**
+  - Integração do script da CVM para processar ofertas públicas.
+  - Setup do scraping/coleta de ofertas vigentes do mercado secundário/primário (XP Investimentos e Meelion) salvas em JSON.
+  - Configuração do repositório Git e sincronização com o GitHub.
+- [x] **Etapa 4: Construção da Base Vetorial (ChromaDB)**
+  - Criação do script `chroma_indexer.py` para carregar as ofertas da CVM.
+  - Teste de embeddings locais (`all-MiniLM-L6-v2` via onnxruntime) e correção de tratamento de exceções do ChromaDB.
+  - Execução inicial da indexação em lotes de 500 rodando no background.
 - [ ] **Etapa 5: Implementação do Agente Inteligente (LangChain / LangGraph)**
   - Criação do agente ReAct para receber as perguntas do usuário, pesquisar dados via tools e responder.
   - Implementação das tools: busca de ofertas da CVM, dados macroeconômicos do BCB e comparativos no ChromaDB.
@@ -89,3 +91,27 @@ Como salvaguarda contra esgotamento de tokens ou reinicialização de sessões d
 ## 5. Resultados Obtidos
 
 *Esta seção descreverá o comportamento do sistema final, incluindo capturas de tela do dashboard Streamlit e exemplos de perguntas respondidas com sucesso pelo agente.*
+
+---
+
+## 6. Indagações e Senso Crítico do Usuário
+
+Este projeto é fruto de uma co-criação ativa, caracterizada por importantes direcionamentos técnicos e de segurança estabelecidos pelo usuário. Registramos abaixo os principais pontos levantados, que serviram como princípios orientadores para o desenvolvimento seguro e estruturado:
+
+### 6.1. Governança e Versionamento incremental (Git/GitHub)
+- **Direcionamento**: O usuário determinou explicitamente que o código do projeto seja hospedado no repositório público `malafisor-arthurloyola/ProjetoAnaliseFinanceiraLangChain.git` e que cada etapa de desenvolvimento seja commitada de forma incremental ao ser concluída.
+- **Impacto**: Isso impede a perda de progresso, facilita a auditoria do código por terceiros e garante as melhores práticas corporativas de CI/CD e versionamento.
+
+### 6.2. Autonomia do Agente vs. Aprovisionamento de Credenciais
+- **Direcionamento**: O usuário indagou ativamente sobre como a IA obteria as credenciais de execução da API da Groq (perguntando se deveria fornecê-las ou se o agente faria de forma autônoma) e forneceu sua chave pessoal da Groq (`gsk_...`) de maneira estruturada no `.env`.
+- **Impacto**: Garantiu o fornecimento imediato de poder computacional sem interrupções por limites de cota da API, estabelecendo o uso de um modelo altamente sofisticado (`llama-3.3-70b-versatile`).
+
+### 6.3. Segurança Extrema em Downloads e Dependências
+- **Direcionamento**: O usuário questionou com rigor: *"Você tomou cuidado com a segurança, né? Baixou apenas coisas seguras, certo?"*
+- **Impacto**: Elevou a exigência de conformidade do projeto. Fomos instados a validar a procedência de cada biblioteca instalada e de cada endpoint consumido. O inventário de segurança do projeto é 100% oficial e auditável (CVM Dados Abertos para dados governamentais, CDNs oficiais da Microsoft para o Playwright, PyPI oficial para pacotes Python e APIs verificadas para o Jina Reader).
+
+### 6.4. Blindagem do Conhecimento Contra Limitações Técnicas de Contexto
+- **Direcionamento**: O usuário exigiu a anotação contínua do progresso no cofre Obsidian (via Zettelkasten) e a criação de um **Prompt de Resgate** para restauração imediata do contexto da sessão.
+- **Impacto**: Esta medida mitiga uma das principais vulnerabilidades dos agentes de IA de hoje — o esquecimento decorrente do esgotamento de janelas de contexto (tokens) ou encerramento abrupto da sessão. O cofre Obsidian atua como uma "memória RAM externa" que permite a qualquer agente de IA ou desenvolvedor parceiro restabelecer o trabalho em minutos.
+
+Essas contribuições representam a aplicação prática do **senso crítico e governança** de TI, assegurando que o produto final seja seguro, transparente e de altíssimo nível.
