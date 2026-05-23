@@ -958,13 +958,13 @@ elif menu_option == "⚙️ Configurações":
         st.markdown("<div class='dashboard-panel'>", unsafe_allow_html=True)
         st.markdown("<h3 style='color:#FFFFFF; font-size:1.15rem; border-bottom:1px solid rgba(135,186,255,0.2); padding-bottom:5px; margin-top:0px;'>Versões de Software</h3>", unsafe_allow_html=True)
         
-        import langchain
+        import langchain_core
         import chromadb
         
         st.markdown(f"""
         <table style="width:100%; font-size:0.85rem; border-collapse:collapse; color:#E0E0E0; line-height:2.0;">
             <tr><td style="color:#87BAFF; font-weight:bold;">Streamlit:</td><td><code>{st.__version__}</code></td></tr>
-            <tr><td style="color:#87BAFF; font-weight:bold;">LangChain Core:</td><td><code>{langchain.__version__}</code></td></tr>
+            <tr><td style="color:#87BAFF; font-weight:bold;">LangChain Core:</td><td><code>{langchain_core.__version__}</code></td></tr>
             <tr><td style="color:#87BAFF; font-weight:bold;">ChromaDB:</td><td><code>{chromadb.__version__}</code></td></tr>
             <tr><td style="color:#87BAFF; font-weight:bold;">Python Environment:</td><td><code>Active Virtualenv (venv)</code></td></tr>
         </table>
