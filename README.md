@@ -1,6 +1,6 @@
-# ⚡ Antigravity-BTG — Plataforma Analítica & Agente Inteligente de Renda Fixa
+# ⚡ Nexus — Plataforma Analítica & Agente Inteligente de Renda Fixa
 
-Esta é a plataforma **Antigravity-BTG**, uma solução analítica integrada de alta performance concebida para a análise, comparação e contextualização de ofertas primárias e secundárias de Renda Fixa no Brasil.
+Esta é a plataforma **Nexus**, uma solução analítica integrada de alta performance concebida para a análise, comparação e contextualização de ofertas primárias e secundárias de Renda Fixa no Brasil.
 
 O sistema integra dados oficiais governamentais da CVM, dados macroeconômicos em tempo real do Banco Central, cotações financeiras ao vivo do Yahoo Finance e ofertas ativas de mercado (XP Investimentos e Meelion), conectando tudo a um **Agente ReAct Inteligente via LangGraph** operado em um painel **Sleek Dark Mode** em Streamlit.
 

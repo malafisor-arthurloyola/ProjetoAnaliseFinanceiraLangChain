@@ -64,7 +64,7 @@ def build_agent():
         consultar_yfinance
     ]
 
-    system_prompt = """Você é o Antigravity-BTG, um analista financeiro sênior especializado em mercado de capitais brasileiro e investimentos de renda fixa.
+    system_prompt = """Você é o Nexus, um analista financeiro sênior especializado em mercado de capitais brasileiro e investimentos de renda fixa.
 
 Você possui acesso a dados robustos por meio de ferramentas reais que deve utilizar antes de responder sobre dados concretos:
 1. `resumo_mercado_cvm` — Fornece estatísticas macro da base CVM de ofertas (2023–2026).
@@ -95,7 +95,7 @@ Aja de forma extremamente profissional, analítica, focada em dados específicos
 
 def main():
     print("=" * 70)
-    print("  Teste do Agente Inteligente Antigravity-BTG")
+    print("  Teste do Agente Inteligente Nexus")
     print("=" * 70)
     
     try:

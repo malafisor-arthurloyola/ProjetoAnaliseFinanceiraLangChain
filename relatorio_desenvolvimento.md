@@ -37,7 +37,7 @@ Abaixo está o cronograma e o status das etapas planejadas para a entrega expres
 
 ## 2. Arquitetura da Plataforma e Fluxo de Dados
 
-A plataforma Antigravity-BTG foi desenhada de forma modular e altamente integrada, visando performance, facilidade de auditoria técnica e governança. O fluxo de dados e controle entre os componentes da plataforma segue a arquitetura descrita abaixo:
+A plataforma Nexus foi desenhada de forma modular e altamente integrada, visando performance, facilidade de auditoria técnica e governança. O fluxo de dados e controle entre os componentes da plataforma segue a arquitetura descrita abaixo:
 
 ```mermaid
 graph TD

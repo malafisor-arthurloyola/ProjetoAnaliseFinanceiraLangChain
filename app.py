@@ -19,7 +19,7 @@ from tools_custom import consultar_indicadores_macro
 # ─── Configuração de Layout da Página ──────────────────────────────────────────
 
 st.set_page_config(
-    page_title="Antigravity-BTG | Renda Fixa",
+    page_title="Nexus | Renda Fixa",
     page_icon="🏦",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -306,7 +306,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = [
         {
             "role": "assistant", 
-            "content": "Olá! Sou o Antigravity-BTG, seu analista especialista em renda fixa. Posso buscar taxas no Banco Central, cotações ao vivo na B3, ofertas vigentes da XP e Meelion, além de fazer buscas semânticas na CVM. Como posso te apoiar hoje?",
+            "content": "Olá! Sou o Nexus, seu analista especialista em renda fixa. Posso buscar taxas no Banco Central, cotações ao vivo na B3, ofertas vigentes da XP e Meelion, além de fazer buscas semânticas na CVM. Como posso te apoiar hoje?",
             "tools": []
         }
     ]
@@ -370,7 +370,7 @@ with st.sidebar:
     st.write("""
     <div style='display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; margin-bottom: 25px; margin-top: 10px;'>
         <span class="logo-badge" style="width: 42px; height: 42px; font-size: 14px;">btg</span>
-        <span style="font-family: 'Outfit', sans-serif; font-size: 1.05rem; font-weight: 600; color: #FFFFFF; letter-spacing: 0.5px;">Antigravity-BTG</span>
+        <span style="font-family: 'Outfit', sans-serif; font-size: 1.05rem; font-weight: 600; color: #FFFFFF; letter-spacing: 0.5px;">Nexus</span>
     </div>
     """, unsafe_allow_html=True)
     
@@ -394,7 +394,7 @@ st.write(f"""
     <div style="display: flex; align-items: center; gap: 8px;">
         <span style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #FFFFFF; letter-spacing: 0.5px;">BTG Pactual</span>
         <span style="color: rgba(255, 255, 255, 0.4); font-size: 18px;">|</span>
-        <span style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 300; color: #87BAFF;">Antigravity-BTG</span>
+        <span style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 300; color: #87BAFF;">Nexus</span>
     </div>
     <div style="display: flex; gap: 30px; align-items: center;">
         <div style="text-align: right;">

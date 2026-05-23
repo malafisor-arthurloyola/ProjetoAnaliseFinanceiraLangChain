@@ -1,6 +1,6 @@
-# Proposta de UX/UI: Antigravity-BTG
+# Proposta de UX/UI: Nexus
 
-A plataforma Antigravity-BTG, focada em análise avançada de Renda Fixa e inteligência de mercado, exige uma interface que transmita autoridade, precisão e sofisticação. O layout atual, dividido rigidamente entre Dashboard e Chatbot, compromete a experiência do usuário ao criar um ambiente visualmente poluído e apertado. 
+A plataforma Nexus, focada em análise avançada de Renda Fixa e inteligência de mercado, exige uma interface que transmita autoridade, precisão e sofisticação. O layout atual, dividido rigidamente entre Dashboard e Chatbot, compromete a experiência do usuário ao criar um ambiente visualmente poluído e apertado. 
 
 Para elevar o produto ao padrão institucional premium do BTG Pactual, propomos uma reformulação completa baseada nos princípios de design de terminais financeiros modernos (como o Bloomberg Terminal, mas com estética contemporânea) e nas diretrizes visuais oficiais do banco.
 
@@ -27,7 +27,7 @@ A paleta utiliza os tons oficiais do BTG Pactual como base, invertendo a polarid
 
 ### Tipografia e Hierarquia
 
-A tipografia oficial do BTG Pactual é a **Moderat**. Para a plataforma Antigravity-BTG, a hierarquia tipográfica deve focar na legibilidade de dados densos.
+A tipografia oficial do BTG Pactual é a **Moderat**. Para a plataforma Nexus, a hierarquia tipográfica deve focar na legibilidade de dados densos.
 
 | Nível | Estilo (Moderat) | Tamanho / Peso | Uso |
 | :--- | :--- | :--- | :--- |
@@ -61,7 +61,7 @@ A tela será dividida em três zonas principais:
 
 | Top Bar (Altura: 64px) |
 | :--- |
-| **Logo Antigravity-BTG** \| **KPIs Globais**: Selic: 10,50% • CDI: 10,40% • IPCA: 4,50% \| **Perfil/Config** |
+| **Logo Nexus** \| **KPIs Globais**: Selic: 10,50% • CDI: 10,40% • IPCA: 4,50% \| **Perfil/Config** |
 
 | Main Workspace (Largura: 75% -> 100%) | Side Panel (Largura: 25% -> 0%) |
 | :--- | :--- |
