@@ -119,7 +119,7 @@ st.markdown("""
         background: #00f2fe;
     }
 </style>
-""", unsafe_allowed_html=True)
+""", unsafe_allow_html=True)
 
 # ─── Inicialização do Cache de Recursos (Agent & Data) ────────────────────────
 
@@ -187,7 +187,7 @@ kpi_data = load_realtime_indicators()
 
 # ─── Sidebar — Filtros do Dashboard ──────────────────────────────────────────
 
-st.sidebar.markdown("<h2 style='color:#00f2fe;font-family:Outfit;margin-bottom:5px;'>⚡ Filtros Rápidos</h2>", unsafe_allowed_html=True)
+st.sidebar.markdown("<h2 style='color:#00f2fe;font-family:Outfit;margin-bottom:5px;'>⚡ Filtros Rápidos</h2>", unsafe_allow_html=True)
 st.sidebar.write("Refine as estatísticas e atualize o painel dinamicamente:")
 
 if not df_cvm.empty:
@@ -245,13 +245,13 @@ st.sidebar.markdown(
     "<div style='font-size:0.8rem;color:#64748b;text-align:center;'>"
     "Antigravity-BTG • Sistema Analítico Avançado<br>"
     "Dados CVM atualizados até 2026</div>",
-    unsafe_allowed_html=True
+    unsafe_allow_html=True
 )
 
 # ─── Estrutura Principal da Tela (Cabeçalho e KPIs) ──────────────────────────
 
-st.markdown("<h1 class='neon-title'>⚡ Antigravity-BTG</h1>", unsafe_allowed_html=True)
-st.markdown("<p class='subtitle'>Painel Avançado de Distribuição de Renda Fixa & Agente ReAct Inteligente</p>", unsafe_allowed_html=True)
+st.markdown("<h1 class='neon-title'>⚡ Antigravity-BTG</h1>", unsafe_allow_html=True)
+st.markdown("<p class='subtitle'>Painel Avançado de Distribuição de Renda Fixa & Agente ReAct Inteligente</p>", unsafe_allow_html=True)
 
 # Linha de Indicadores Macro (KPI Cards com Glassmorphism)
 kpi1, kpi2, kpi3 = st.columns(3)
@@ -263,7 +263,7 @@ with kpi1:
         <div class="kpi-value">{kpi_data["selic"]}</div>
         <div class="kpi-date">Vigência: {kpi_data["selic_date"]} (Banco Central)</div>
     </div>
-    """, unsafe_allowed_html=True)
+    """, unsafe_allow_html=True)
 
 with kpi2:
     st.markdown(f"""
@@ -272,7 +272,7 @@ with kpi2:
         <div class="kpi-value">{kpi_data["cdi"]}</div>
         <div class="kpi-date">Data: {kpi_data["cdi_date"]} (Banco Central)</div>
     </div>
-    """, unsafe_allowed_html=True)
+    """, unsafe_allow_html=True)
 
 with kpi3:
     st.markdown(f"""
@@ -281,7 +281,7 @@ with kpi3:
         <div class="kpi-value" style="color:#39ff14; text-shadow: 0 0 8px rgba(57, 255, 20, 0.3);">{kpi_data["ipca"]}</div>
         <div class="kpi-date">Referência: {kpi_data["ipca_date"]} (Banco Central)</div>
     </div>
-    """, unsafe_allowed_html=True)
+    """, unsafe_allow_html=True)
 
 # ─── Corpo de Layout de 2 Colunas (Painel Analítico vs. AI Agent Chat) ───────
 
@@ -289,7 +289,7 @@ col_dash, col_chat = st.columns([3, 2])
 
 # ── Coluna Esquerda: Visualização Gráfica & Tabela ────────────────────────────
 with col_dash:
-    st.markdown("<h3 style='font-family:Outfit;color:#f0f3f8;margin-bottom:15px;'>📈 Inteligência do Painel (Dashboard)</h3>", unsafe_allowed_html=True)
+    st.markdown("<h3 style='font-family:Outfit;color:#f0f3f8;margin-bottom:15px;'>📈 Inteligência do Painel (Dashboard)</h3>", unsafe_allow_html=True)
     
     if df_filtrado.empty:
         st.info("Nenhuma oferta registrada corresponde aos filtros ativos. Tente relaxar as restrições na barra lateral.")
@@ -344,7 +344,7 @@ with col_dash:
             st.plotly_chart(fig_lider, use_container_width=True)
             
         # 2. Tabela de dados Interativa
-        st.markdown("<h4 style='font-family:Outfit;color:#00f2fe;margin-top:20px;margin-bottom:10px;'>📋 Detalhes das Ofertas Selecionadas</h4>", unsafe_allowed_html=True)
+        st.markdown("<h4 style='font-family:Outfit;color:#00f2fe;margin-top:20px;margin-bottom:10px;'>📋 Detalhes das Ofertas Selecionadas</h4>", unsafe_allow_html=True)
         
         # Otimizar colunas para exibição amigável
         display_cols = {
@@ -375,12 +375,12 @@ with col_dash:
 
 # ── Coluna Direita: Agente Inteligente Chat ───────────────────────────────────
 with col_chat:
-    st.markdown("<h3 style='font-family:Outfit;color:#00f2fe;margin-bottom:15px;'>🤖 Analista Financeiro ReAct (IA)</h3>", unsafe_allowed_html=True)
+    st.markdown("<h3 style='font-family:Outfit;color:#00f2fe;margin-bottom:15px;'>🤖 Analista Financeiro ReAct (IA)</h3>", unsafe_allow_html=True)
     st.markdown(
         "<div style='font-size:0.85rem;color:#8c9cb2;margin-bottom:15px;line-height:1.3;'>"
         "Faça análises complexas sobre renda fixa. O agente possui memória interna "
         "e acessa dinamicamente as ferramentas de CVM, BCB, ChromaDB e XP.</div>",
-        unsafe_allowed_html=True
+        unsafe_allow_html=True
     )
     
     # Inicializa histórico de mensagens na sessão
@@ -448,7 +448,7 @@ with col_chat:
                             st.markdown(
                                 f"<div style='font-size:0.75rem;color:#00f2fe;font-family:monospace;margin-bottom:8px;'>"
                                 f"🔧 Chamadas de Ferramentas: {', '.join(set(tools_chamadas))}</div>",
-                                unsafe_allowed_html=True
+                                unsafe_allow_html=True
                             )
                             
                         st.markdown(resposta_final)
