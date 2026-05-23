@@ -23,15 +23,14 @@ Abaixo está o cronograma e o status das etapas planejadas para a entrega expres
   - Execução inicial da indexação em lotes de 500 concluída no background.
 - [x] **Etapa 5: Implementação do Agente Inteligente (LangChain / LangGraph)**
   - Criação do agente ReAct para receber as perguntas do usuário, pesquisar dados via tools e responder.
-  - Implementação das tools: busca de ofertas da CVM, dados macroeconômicos do BCB e comparativos no ChromaDB.
-  - *Refinamento em andamento*: Ajuste das diretrizes do prompt do sistema para forçar especificidade (evitar respostas teóricas/didáticas gerais) e exibição em tabelas Markdown.
+  - Implementação das tools: busca de ofertas da CVM, dados macroeconômicos do BCB, equivalência fiscal, arbitragem XP/Meelion e exportação de relatórios.
 - [x] **Etapa 6: Desenvolvimento da Interface Visual (Streamlit)**
   - Construção do dashboard interativo com filtros.
   - Integração de gráficos Plotly da evolução de taxas e tabelas.
   - Caixa de chat integrada para o usuário conversar diretamente com o agente de IA.
-  - *Refinamento em andamento*: Coleta de feedback de UX para reestruturação do layout.
-- [/] **Etapa 7: Testes, Refinamento e Documentação Final**
-  - Testes ponta a ponta e finalização do relatório de entrega com base no novo design de UX.
+  - Adição da coluna de "Insight IA" na tabela de emissões CVM gerando avaliações dinâmicas macro.
+- [x] **Etapa 7: Testes, Refinamento e Documentação Final**
+  - Testes ponta a ponta e finalização do relatório de entrega com base no novo design de UX e nas diretrizes do Guia de Referência Técnica.
 
 ---
 
@@ -106,13 +105,35 @@ Como salvaguarda contra esgotamento de tokens ou reinicialização de sessões d
 
 ## 4. Modelos Implementados
 
-*Esta seção será detalhada após a definição dos prompts do agente e a escolha do modelo da Groq (ex: Llama 3.3 70B).*
+A inteligência da plataforma Nexus é suportada por uma arquitetura híbrida de modelos de linguagem natural (LLM) e representação vetorial (embeddings):
+
+- **LLM Principal: `llama-3.3-70b-versatile` (via Groq API)**
+  - Escolhido por sua alta velocidade de inferência e capacidade avançada de raciocínio lógico em cenários complexos (ReAct). Ele analisa as chamadas de ferramentas e formata as respostas baseando-se estritamente nas regras do *Guia de Referência Técnica Nexus*.
+  - Configurado com `temperature=0.0` para maximizar a precisão e consistência dos cálculos matemáticos e reduzir o risco de alucinações.
+- **Modelo de Embeddings: `all-MiniLM-L6-v2` (Execução Local via ONNX)**
+  - Utilizado no script `chroma_indexer.py` para converter os textos descritivos das ofertas da CVM em vetores de 384 dimensões e persistir no ChromaDB.
+  - Permite busca semântica em tempo real de forma totalmente local, sem custos de API por token.
 
 ---
 
-## 5. Resultados Obtidos
+## 5. Resultados Obtidos e Regras de Negócio Implementadas
 
-*Esta seção descreverá o comportamento do sistema final, incluindo capturas de tela do dashboard Streamlit e exemplos de perguntas respondidas com sucesso pelo agente.*
+A plataforma Nexus foi validada com sucesso e atende a todos os requisitos de inteligência e auditoria exigidos por especialistas:
+
+1. **CDI Anualizado Realista no Cabeçalho e Chat:**
+   - O cálculo foi corrigido para refletir a lógica macroeconômica brasileira: `CDI = Selic Meta - 0.10 p.p.`.
+   - Isso evita a exibição do CDI diário como se fosse anualizado e garante que os indicadores de rentabilidade no dashboard (KPI do topo) e no chatbot estejam perfeitamente alinhados com o mercado de capitais brasileiro.
+2. **Mapeamento Automático de Setores Reais (Sem "N/D"):**
+   - Implementação de um motor de mapeamento dinâmico que atribui setores reais de mercado a todos os ativos e emissores: LFT/NTN = *Soberano*, CDB/LCI/LCA = *Bancário*, CRI = *Imobiliário*, CRA = *Agronegócio*, Debêntures = *Infraestrutura* ou *Industrial*.
+3. **Motor de Equivalência Fiscal:**
+   - Implementação da ferramenta `calcular_equivalencia_fiscal` que calcula a alíquota regressiva do Imposto de Renda (22,5% a 15%) com base no prazo de dias informado pelo usuário e calcula a taxa líquida anualizada.
+   - Isso permite fazer comparações justas de rentabilidade entre ativos isentos (CRI, CRA, LCA, LCI) e ativos tributados (CDB, Tesouro).
+4. **Alerta de Crédito Elevado (High Yield Guardrails):**
+   - Criação de um filtro de risco no chatbot e no dashboard que dispara alertas de "Risco de Crédito Elevado (High Yield)" sempre que uma taxa ofertada excede `CDI + 4.0%` ou taxa prefixada acima de `18.0% a.a.`.
+5. **Ferramenta de Arbitragem XP vs. Meelion:**
+   - Ferramenta que cruza as ofertas vigentes em tempo real da carteira recomendada da XP com as taxas do mercado secundário do Meelion e identifica a melhor oportunidade de investimento com base na relação Risco/Retorno.
+6. **Exportação de Relatórios Sob Demanda:**
+   - A ferramenta `exportar_relatorio` permite que o agente salve análises detalhadas solicitadas via chat em arquivos físicos locais (`.md` ou `.txt`) na raiz do projeto, viabilizando o uso prático de relatórios em reuniões executivas.
 
 ---
 

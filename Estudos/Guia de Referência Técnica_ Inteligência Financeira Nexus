@@ -1,0 +1,66 @@
+# Guia de Referência Técnica: Inteligência Financeira Nexus
+
+Este documento serve como base de conhecimento para a IA orquestradora da plataforma Nexus. Ele detalha a lógica econômica, fluxos de decisão e requisitos técnicos necessários para atender especialistas do mercado financeiro (BTG, XP, etc.).
+
+---
+
+## 1. Lógica de Mercado e Indicadores Críticos
+
+### 1.1. O Binômio Selic vs. CDI
+*   **Selic Meta:** Definida pelo COPOM. É o alvo da taxa básica de juros.
+*   **CDI (Certificado de Depósito Interbancário):** É a taxa que os bancos cobram entre si. 
+*   **Regra de Ouro:** O CDI anualizado deve ser sempre muito próximo da Selic Meta (geralmente ~0,10 p.p. abaixo). 
+    *   *Exemplo:* Selic 14,50% -> CDI ~14,40%. 
+    *   *Erro Comum:* Exibir o CDI diário (~0,05%) como se fosse a taxa anual. **Sempre normalize para base anual (252 dias úteis).**
+
+### 1.2. Tributação e Equivalência (Gross-up)
+Investidores comparam ativos com e sem Imposto de Renda (IR).
+*   **Ativos com IR (Tabela Regressiva):** CDB, Debêntures Comuns, Tesouro Direto.
+*   **Ativos Isentos (IR Zero):** LCI, LCA, CRI, CRA, Debêntures Incentivadas.
+*   **Insight Necessário:** O sistema deve calcular a "Taxa Equivalente". 
+    *   *Fórmula Simplificada:* `Taxa_Isenta = Taxa_Com_IR * (1 - Alíquota_IR)`.
+    *   *Valor para o Usuário:* Mostrar que uma LCA de 12% pode render mais que um CDB de 14%.
+
+---
+
+## 2. Hierarquia de Risco e Crédito
+
+### 2.1. Ratings (Notas de Crédito)
+O risco não é apenas "alto ou baixo", ele é medido por agências (S&P, Moody's, Fitch):
+*   **Investment Grade (Grau de Investimento):** AAA, AA, A, BBB. (Segurança alta).
+*   **Speculative Grade (Grau Especulativo/High Yield):** BB, B, CCC, D. (Risco alto, taxa alta).
+*   **Ação da IA:** Se uma taxa for muito superior ao CDI (ex: CDI + 5% ou 20% prefixado), a IA deve obrigatoriamente buscar o Rating ou alertar para "Risco de Crédito Elevado".
+
+### 2.2. Setores e Emissores
+Nunca use "N/D" para ativos padronizados:
+*   **LFT / NTN-B / NTN-F:** Setor "Soberano" (Tesouro Nacional).
+*   **CDB / LCI / LCA:** Setor "Bancário/Financeiro".
+*   **CRI / CRA:** Setores "Imobiliário" ou "Agronegócio".
+
+---
+
+## 3. Fluxo de Decisão do Usuário Especialista
+
+Para que o usuário confie na Nexus, o fluxo deve seguir esta hierarquia de valor:
+1.  **Segurança (Quem emite e qual o Rating?):** "Posso perder meu dinheiro?"
+2.  **Rentabilidade Líquida (Quanto sobra após o IR?):** "Qual o ganho real?"
+3.  **Liquidez (Quando posso resgatar?):** "O dinheiro fica preso por quanto tempo?"
+4.  **Contexto (Por que essa taxa agora?):** "A inflação vai subir ou cair?"
+
+---
+
+## 4. Features de Diferenciação (O que falta?)
+
+*   **Spread sobre o Tesouro:** Para Debêntures e CRAs, calcular quanto a taxa paga acima do título público equivalente (ex: IPCA + 6% vs Tesouro IPCA + 5% = Spread de 1%).
+*   **Análise de Sensibilidade:** O chatbot deve ser capaz de responder: "Se a Selic cair para 10%, qual desses ativos performa melhor?"
+*   **Arbitragem Automática:** Comparar as listas da XP e Meelion e destacar a "Melhor Oportunidade do Dia" baseada em Rentabilidade Líquida / Risco.
+
+---
+
+## 5. Glossário para a IA
+*   **Duration:** Prazo médio ponderado de recebimento do fluxo de caixa (indica sensibilidade a juros).
+*   **Spread:** Diferença entre a taxa de compra e venda ou entre um ativo e um benchmark.
+*   **Benchmark:** Referência de mercado (CDI, IPCA, IBOV, IFIX).
+*   **Pós-fixado:** Ativo que rende um % de um indexador (ex: 110% do CDI).
+*   **Prefixado:** Ativo com taxa fixa no momento da compra (ex: 12% a.a.).
+*   **Híbrido:** Ativo que combina inflação + taxa fixa (ex: IPCA + 6%).
