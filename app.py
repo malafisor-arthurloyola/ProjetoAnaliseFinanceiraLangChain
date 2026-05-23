@@ -852,7 +852,7 @@ elif menu_option == "💼 Mercado (XP vs Meelion)":
                 <div style="background: rgba(5, 19, 42, 0.4); border: 1px solid rgba(135, 186, 255, 0.1); border-radius: 4px; padding: 12px; margin-bottom: 10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
                         <strong style="color:#FFFFFF; font-size:0.85rem;">{m['nome']}</strong>
-                        <span style="color:#2DB071; font-size:0.75rem; font-weight:bold;">{m['rentabilidade']}</span>
+                        <span style="color:#2DB071; font-size:0.75rem; font-weight:bold;">{m['tipo']}</span>
                     </div>
                     <div style="font-size:0.75rem; color:#87BAFF; line-height:1.4;">
                         Emissor: {m['emissor']} | Distribuidor: {m['distribuidor']}<br>
