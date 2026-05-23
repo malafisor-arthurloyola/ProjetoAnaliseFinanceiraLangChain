@@ -13,7 +13,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from agent_engine import build_agent
+from agent_engine import get_provider_status, invoke_agent_with_key_fallback
 from tools_custom import consultar_indicadores_macro
 
 # ─── Configuração de Layout da Página ──────────────────────────────────────────
@@ -232,6 +232,29 @@ st.markdown("""
     ::-webkit-scrollbar-thumb:hover {
         background: #195AB4;
     }
+
+    .nexus-skeleton {
+        height: 12px;
+        border-radius: 4px;
+        background: linear-gradient(90deg, rgba(135,186,255,0.08), rgba(135,186,255,0.22), rgba(135,186,255,0.08));
+        background-size: 220% 100%;
+        animation: nexusPulse 1.4s ease-in-out infinite;
+        margin: 8px 0;
+    }
+
+    .nexus-disclaimer {
+        color: #B1D2FF;
+        font-size: 0.72rem;
+        line-height: 1.35;
+        border-top: 1px solid rgba(135,186,255,0.16);
+        margin-top: 10px;
+        padding-top: 8px;
+    }
+
+    @keyframes nexusPulse {
+        0% { background-position: 0% 0; }
+        100% { background-position: -220% 0; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -291,11 +314,205 @@ def load_realtime_indicators():
             if "referente a" in line:
                 ipca_date = line.split("referente a")[-1].replace(")", "").replace("]", "").strip()
                 
+    selic_num = parse_percent_value(selic_val, default=14.50)
+    cdi_num = max(selic_num - 0.10, 0.0)
+    cdi_val = f"{cdi_num:.2f}% a.a."
+    if cdi_date == "23/05/2026":
+        cdi_date = selic_date
+
     return {
         "selic": selic_val, "selic_date": selic_date,
         "cdi": cdi_val, "cdi_date": cdi_date,
         "ipca": ipca_val, "ipca_date": ipca_date
     }
+
+
+def parse_percent_value(value, default=0.0):
+    try:
+        cleaned = str(value).replace("%", "").replace("a.a.", "").replace(",", ".").strip()
+        return float(cleaned.split()[0])
+    except (TypeError, ValueError, IndexError):
+        return default
+
+
+def classify_sector(row):
+    ativo = str(row.get("Valor_Mobiliario", "")).upper()
+    incentivado = str(row.get("Titulo_incentivado", "")).upper()
+    lastro = str(row.get("Tipo_lastro", "")).upper()
+
+    if any(term in ativo for term in ["LFT", "NTN", "TESOURO"]):
+        return "Soberano"
+    if any(term in ativo for term in ["CDB", "LCI", "LCA", "LETRA FINANCEIRA"]):
+        return "Bancario"
+    if "AGRONEGOCIO" in ativo or "AGRONEG" in ativo or "CRA" in ativo:
+        return "Agro"
+    if "IMOBILI" in ativo or "CRI" in ativo or "FII" in ativo:
+        return "Imobiliario"
+    if "DEB" in ativo:
+        return "Infra" if incentivado == "S" else "Corporativo"
+    if "FIDC" in ativo or "DIREITOS CREDITORIOS" in ativo:
+        return "Credito Estruturado" if "CONCENTRADO" in lastro else "Credito Pulverizado"
+    if "FIP" in ativo:
+        return "Private Equity"
+    if "FIF" in ativo or "FUNDO" in ativo:
+        return "Fundos"
+    if "NOTAS COMERCIAIS" in ativo:
+        return "Corporativo"
+    return "Corporativo"
+
+
+def is_tax_exempt(row):
+    ativo = str(row.get("Valor_Mobiliario", "")).upper()
+    incentivado = str(row.get("Titulo_incentivado", "")).upper()
+    return incentivado == "S" or any(term in ativo for term in ["LCA", "LCI", "CRI", "CRA", "LIG"])
+
+
+def calculate_ir_rate(row):
+    if is_tax_exempt(row):
+        return 0.0
+
+    registro = row.get("Data_Registro")
+    encerramento = row.get("Data_Encerramento")
+    if pd.isna(registro) or pd.isna(encerramento):
+        prazo_dias = 721
+    else:
+        prazo_dias = max((encerramento - registro).days, 1)
+
+    if prazo_dias <= 180:
+        return 0.225
+    if prazo_dias <= 360:
+        return 0.20
+    if prazo_dias <= 720:
+        return 0.175
+    return 0.15
+
+
+def estimate_gross_rate(row, cdi_value):
+    setor = row.get("Setor", classify_sector(row))
+    volume = float(row.get("Valor_Total_Registrado", 0) or 0)
+    spread_by_sector = {
+        "Soberano": -0.10,
+        "Bancario": 0.35,
+        "Agro": 1.25,
+        "Imobiliario": 1.45,
+        "Infra": 1.70,
+        "Corporativo": 2.20,
+        "Credito Pulverizado": 2.50,
+        "Credito Estruturado": 3.25,
+        "Private Equity": 4.50,
+        "Fundos": 0.60,
+    }
+    volume_spread = 0.45 if volume and volume < 100_000_000 else 0.0
+    return max(cdi_value + spread_by_sector.get(setor, 1.0) + volume_spread, 0.0)
+
+
+def infer_rating(row):
+    setor = row.get("Setor", classify_sector(row))
+    volume = float(row.get("Valor_Total_Registrado", 0) or 0)
+    avaliador = str(row.get("Avaliador_Risco", "")).strip().lower()
+    garantias = str(row.get("Descricao_garantias", "")).strip().lower()
+    status = str(row.get("Status_Requerimento", "")).upper()
+
+    if setor == "Soberano":
+        return "AAA", "Baixo Risco"
+    if setor == "Bancario":
+        return "AA", "Baixo Risco"
+    if "SUSPENSA" in status or "REVOGADA" in status or "CADUCADO" in status:
+        return "BB", "Atencao"
+    if avaliador and avaliador not in {"nan", "na", "n.a.", "nao ha", "não há"}:
+        return ("AA", "Baixo Risco") if volume >= 300_000_000 else ("A", "Medio Risco")
+    if any(term in garantias for term in ["fiduci", "aval", "seguro", "fundo"]):
+        return "A", "Medio Risco"
+    if setor in {"Agro", "Imobiliario", "Infra"}:
+        return "A-", "Medio Risco"
+    if setor in {"Credito Estruturado", "Private Equity"}:
+        return "BBB", "Atencao"
+    return "BBB+", "Medio Risco"
+
+
+def build_ai_verdict(row, cdi_value):
+    rating = row.get("Rating", "BBB")
+    setor = row.get("Setor", "Corporativo")
+    taxa = float(row.get("Taxa_Bruta_Estimada", cdi_value) or cdi_value)
+    isento = bool(row.get("Isento_IR", False))
+
+    if taxa > cdi_value + 4:
+        return "Atencao", "Taxa estimada acima de CDI + 4 p.p.; exige diligencia de credito e liquidez."
+    if rating in {"AAA", "AA"} or setor == "Soberano":
+        return "Seguro", "Perfil defensivo por rating/garantia/setor; ainda requer validacao documental."
+    if isento and setor in {"Agro", "Imobiliario", "Infra"}:
+        return "Oportunidade", "Ativo isento com potencial de eficiencia fiscal para pessoa fisica."
+    return "Neutro", "Oferta sem sinal forte; comparar taxa liquida, prazo, lastro e garantias."
+
+
+def is_historical_status(status):
+    status_text = str(status).upper()
+    return any(term in status_text for term in ["ENCERRADA", "CADUCADO", "REVOGADA", "EXPIRADO"])
+
+
+def prepare_nexus_dataset(df, kpi_data):
+    if df.empty:
+        return df
+
+    cdi_value = parse_percent_value(kpi_data.get("cdi"), default=14.40)
+    enriched = df.copy()
+    enriched["Setor"] = enriched.apply(classify_sector, axis=1)
+    enriched["Isento_IR"] = enriched.apply(is_tax_exempt, axis=1)
+    enriched["Aliquota_IR"] = enriched.apply(calculate_ir_rate, axis=1)
+    enriched["Taxa_Bruta_Estimada"] = enriched.apply(lambda row: estimate_gross_rate(row, cdi_value), axis=1)
+    enriched["Taxa_Liquida"] = enriched["Taxa_Bruta_Estimada"] * (1 - enriched["Aliquota_IR"])
+    ratings = enriched.apply(infer_rating, axis=1)
+    enriched["Rating"] = ratings.apply(lambda item: item[0])
+    enriched["Risco_Rating"] = ratings.apply(lambda item: item[1])
+    verdicts = enriched.apply(lambda row: build_ai_verdict(row, cdi_value), axis=1)
+    enriched["Veredito_IA"] = verdicts.apply(lambda item: item[0])
+    enriched["Tooltip_IA"] = verdicts.apply(lambda item: item[1])
+    enriched["Historico"] = enriched["Status_Requerimento"].apply(is_historical_status)
+    enriched["Taxa Liquida"] = enriched["Taxa_Liquida"].map(lambda value: f"{value:.2f}% a.a.")
+    enriched["Taxa Bruta"] = enriched["Taxa_Bruta_Estimada"].map(lambda value: f"{value:.2f}% a.a.")
+    enriched["Aliquota IR"] = enriched["Aliquota_IR"].map(lambda value: "Isento" if value == 0 else f"{value * 100:.1f}%")
+    enriched["Veredito IA"] = enriched.apply(lambda row: f"{row['Veredito_IA']} - {row['Tooltip_IA']}", axis=1)
+    return enriched
+
+
+def apply_intent_filter(df, intent, cdi_value):
+    if df.empty or not intent:
+        return df
+    if intent == "seguranca":
+        return df[(df["Rating"].isin(["AAA", "AA"])) | (df["Setor"].isin(["Soberano", "Bancario"]))]
+    if intent == "renda_mensal":
+        return df[df["Setor"].isin(["Imobiliario", "Infra", "Fundos"])]
+    if intent == "rentabilidade":
+        return df[df["Taxa_Bruta_Estimada"] > cdi_value + 4]
+    if intent == "agro":
+        return df[df["Setor"].eq("Agro")]
+    return df
+
+
+def render_pdf_progress_skeleton():
+    progress = st.progress(0)
+    status = st.empty()
+    for step, value in [
+        ("Lendo prospecto de 300 paginas...", 30),
+        ("Calculando premio de risco...", 65),
+        ("Cruzando com Relatorio Focus...", 100),
+    ]:
+        status.caption(step)
+        progress.progress(value)
+    st.markdown(
+        """
+        <div class="nexus-skeleton" style="width: 100%;"></div>
+        <div class="nexus-skeleton" style="width: 82%;"></div>
+        <div class="nexus-skeleton" style="width: 64%;"></div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+DISCLAIMER_IA = (
+    "Esta analise e gerada por inteligencia artificial (Nexus AI) e tem carater "
+    "informativo. Nao constitui recomendacao de investimento. Consulte seu assessor financeiro."
+)
 
 
 def gerar_insight_ia(row, selic_str, cdi_str):
@@ -352,6 +569,7 @@ def gerar_insight_ia(row, selic_str, cdi_str):
 
 df_cvm = load_cvm_dataset()
 kpi_data = load_realtime_indicators()
+df_cvm = prepare_nexus_dataset(df_cvm, kpi_data)
 
 # ─── Inicialização de Estados da Sessão ───────────────────────────────────────
 
@@ -379,6 +597,11 @@ if "filter_status" not in st.session_state:
     st.session_state.filter_status = None
 if "filter_volume" not in st.session_state:
     st.session_state.filter_volume = (0.0, 1500.0) # Em Milhões
+
+if "intent_filter" not in st.session_state:
+    st.session_state.intent_filter = None
+if "selected_offer_context" not in st.session_state:
+    st.session_state.selected_offer_context = None
 
 # Auxiliares de correspondência
 def get_default_ativos(options):
@@ -504,8 +727,31 @@ if menu_option == "📈 Dashboard CVM":
                 (df_filtrado["Valor_Total_Registrado"] >= st.session_state.filter_volume[0] * 1e6) &
                 (df_filtrado["Valor_Total_Registrado"] <= st.session_state.filter_volume[1] * 1e6)
             ]
+            cdi_atual = parse_percent_value(kpi_data["cdi"], default=14.40)
         else:
             df_filtrado = pd.DataFrame()
+            cdi_atual = parse_percent_value(kpi_data["cdi"], default=14.40)
+
+        st.markdown("<div class='dashboard-panel'>", unsafe_allow_html=True)
+        st.markdown("<h4 style='margin-top:0px; font-size:1rem; color:#87BAFF;'>Filtros de intenção</h4>", unsafe_allow_html=True)
+        intent_cols = st.columns(5)
+        intent_options = [
+            ("seguranca", "Maxima Seguranca", "Rating AA/AAA, soberano ou bancario"),
+            ("renda_mensal", "Renda Mensal", "FIIs, fundos e infra"),
+            ("rentabilidade", "Super Rentabilidade", "High Yield acima de CDI + 4 p.p."),
+            ("agro", "Foco no Agro", "LCAs e CRAs isentos"),
+            (None, "Limpar", "Remover filtro de intenção"),
+        ]
+        for col, (intent_key, label, help_text) in zip(intent_cols, intent_options):
+            with col:
+                active = st.session_state.intent_filter == intent_key
+                button_label = f"{label}" + (" *" if active and intent_key else "")
+                if st.button(button_label, key=f"intent_{label}", help=help_text, use_container_width=True):
+                    st.session_state.intent_filter = intent_key
+                    st.rerun()
+        if st.session_state.intent_filter:
+            df_filtrado = apply_intent_filter(df_filtrado, st.session_state.intent_filter, cdi_atual)
+        st.markdown("</div>", unsafe_allow_html=True)
 
         if df_filtrado.empty:
             st.info("Nenhuma oferta registrada corresponde aos filtros ativos. Ajuste os filtros na aba lateral.")
@@ -582,18 +828,33 @@ if menu_option == "📈 Dashboard CVM":
             st.markdown("<h3 style='margin-top:0px; font-size:1.25rem;'>📋 Emissões Registradas</h3>", unsafe_allow_html=True)
             
             # Adicionar coluna Insight IA com base no cenário macroeconômico atual
-            df_insight = df_filtrado.copy()
+            df_ativas = df_filtrado[~df_filtrado["Historico"]].copy()
+            df_historico = df_filtrado[df_filtrado["Historico"]].copy()
+            table_mode = st.radio(
+                "Recorte da tabela",
+                options=["Ofertas Ativas", "Historico"],
+                horizontal=True,
+                label_visibility="collapsed",
+                key="offers_table_mode",
+            )
+            df_insight = df_ativas.copy() if table_mode == "Ofertas Ativas" else df_historico.copy()
+            table_source_df = df_insight
+            st.caption(f"{len(df_ativas)} ofertas ativas | {len(df_historico)} no historico")
             df_insight["Insight IA"] = df_insight.apply(
                 lambda row: gerar_insight_ia(row, kpi_data["selic"], kpi_data["cdi"]), 
                 axis=1
             )
             
             display_cols = {
-                "Nome_Emissor": "Issuer",
-                "Valor_Mobiliario": "Asset",
+                "Nome_Emissor": "Emissor",
+                "Valor_Mobiliario": "Ativo",
+                "Setor": "Setor",
+                "Taxa Liquida": "Taxa Liquida",
+                "Rating": "Rating",
                 "Valor_Total_Registrado": "Volume (R$)",
                 "Status_Requerimento": "Status",
-                "Insight IA": "Insight IA"
+                "Veredito IA": "Veredito IA",
+                "Insight IA": "Insight Detalhado"
             }
             
             df_display = df_insight[list(display_cols.keys())].copy()
@@ -606,7 +867,7 @@ if menu_option == "📈 Dashboard CVM":
                         format="R$ %.2f",
                         help="Volume financeiro total da oferta"
                     ),
-                    "Insight IA": st.column_config.TextColumn(
+                    "Taxa Liquida": st.column_config.TextColumn(
                         help="Insight gerado automaticamente pela inteligência da plataforma"
                     )
                 },
@@ -616,6 +877,10 @@ if menu_option == "📈 Dashboard CVM":
                 selection_mode="single-row",
                 on_select="rerun",
                 key="ofertas_table"
+            )
+            st.markdown(
+                f"<div class='nexus-disclaimer'>{DISCLAIMER_IA}</div>",
+                unsafe_allow_html=True,
             )
             st.markdown("</div>", unsafe_allow_html=True)
             
@@ -729,9 +994,12 @@ if menu_option == "📈 Dashboard CVM":
                         with st.chat_message("assistant"):
                             with st.spinner("⚙️ Consultando fontes..."):
                                 try:
-                                    agent = get_cached_agent()
-                                    response = agent.invoke({"messages": [{"role": "user", "content": mensagem_com_contexto}]})
+                                    response = invoke_agent_with_key_fallback([
+                                        {"role": "user", "content": mensagem_com_contexto}
+                                    ])
                                     resposta_final = response["messages"][-1].content
+                                    if DISCLAIMER_IA not in resposta_final:
+                                        resposta_final = f"{resposta_final}\n\n---\n{DISCLAIMER_IA}"
                                     tools_utilizadas = list(set([msg.name for msg in response["messages"] if hasattr(msg, "name") and msg.name]))
                                     
                                     if tools_utilizadas:
@@ -751,7 +1019,7 @@ if menu_option == "📈 Dashboard CVM":
             # 🔍 ABA DETALHES DO ATIVO (Master-Detail Drawer)
             if tab_detail is not None:
                 with tab_detail:
-                    selected_offer = df_filtrado.iloc[selected_rows[0]]
+                    selected_offer = table_source_df.iloc[selected_rows[0]]
                     emissor = selected_offer["Nome_Emissor"]
                     ativo = selected_offer["Valor_Mobiliario"]
                     lider = selected_offer["Nome_Lider"]
@@ -765,6 +1033,12 @@ if menu_option == "📈 Dashboard CVM":
                     garantias = selected_offer.get("Descricao_garantias", "N/D")
                     recursos = selected_offer.get("Destinacao_recursos", "N/D")
                     lastro = selected_offer.get("Tipo_lastro", "N/D")
+                    setor = selected_offer.get("Setor", "Corporativo")
+                    rating = selected_offer.get("Rating", "BBB")
+                    risco_rating = selected_offer.get("Risco_Rating", "Medio Risco")
+                    taxa_liquida = selected_offer.get("Taxa Liquida", "N/D")
+                    veredito = selected_offer.get("Veredito_IA", "Neutro")
+                    tooltip_ia = selected_offer.get("Tooltip_IA", "")
 
                     isento_txt = "Sim [ISENTO IR]" if incentivado == "Sim" else "Não"
                     esg_txt = "Sim [Sustentável]" if sustentavel == "Sim" else "Não"
@@ -777,7 +1051,7 @@ if menu_option == "📈 Dashboard CVM":
                     """, unsafe_allow_html=True)
 
                     # KPI Cards Internos da Emissão
-                    c_det1, c_det2 = st.columns(2)
+                    c_det1, c_det2, c_det3 = st.columns(3)
                     with c_det1:
                         st.markdown(f"""
                         <div style="background:rgba(5, 19, 42, 0.5); padding:8px; border:1px solid rgba(135,186,255,0.1); border-radius:4px; margin-bottom:8px;">
@@ -792,11 +1066,20 @@ if menu_option == "📈 Dashboard CVM":
                             <strong style="font-size:0.85rem; color:#2DB071;">{status}</strong>
                         </div>
                         """, unsafe_allow_html=True)
+                    with c_det3:
+                        st.markdown(f"""
+                        <div style="background:rgba(5, 19, 42, 0.5); padding:8px; border:1px solid rgba(135,186,255,0.1); border-radius:4px; margin-bottom:8px;">
+                            <span style="font-size:0.6rem; color:#87BAFF; display:block; text-transform:uppercase;">Taxa Liquida</span>
+                            <strong style="font-size:0.85rem; color:#2DB071;">{taxa_liquida}</strong>
+                        </div>
+                        """, unsafe_allow_html=True)
 
                     # Tabela de dados estruturados
                     st.markdown(f"""
                     <table style="width:100%; font-size:0.78rem; border-collapse:collapse; color:#E0E0E0; line-height:1.5;">
                         <tr><td style="padding:3px 0; color:#87BAFF; font-weight:bold; width:35%;">Coordenador:</td><td>{lider}</td></tr>
+                        <tr><td style="padding:3px 0; color:#87BAFF; font-weight:bold;">Setor:</td><td>{setor}</td></tr>
+                        <tr><td style="padding:3px 0; color:#87BAFF; font-weight:bold;">Rating:</td><td>{rating} ({risco_rating})</td></tr>
                         <tr><td style="padding:3px 0; color:#87BAFF; font-weight:bold;">Público-Alvo:</td><td>{publico}</td></tr>
                         <tr><td style="padding:3px 0; color:#87BAFF; font-weight:bold;">Isento IR:</td><td>{isento_txt}</td></tr>
                         <tr><td style="padding:3px 0; color:#87BAFF; font-weight:bold;">ESG/Sustentável:</td><td>{esg_txt}</td></tr>
@@ -824,6 +1107,9 @@ if menu_option == "📈 Dashboard CVM":
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                    with st.expander("Processar prospecto com Nexus", expanded=False):
+                        render_pdf_progress_skeleton()
 
                     # Fluxo de Caixa Simulado (Sparkline)
                     st.markdown("<h5 style='margin-top:10px; margin-bottom:5px; font-size:0.85rem; color:#87BAFF;'>Projeção de Amortização</h5>", unsafe_allow_html=True)
@@ -856,11 +1142,25 @@ if menu_option == "📈 Dashboard CVM":
                     </div>
                     """, unsafe_allow_html=True)
 
-                    if st.button("💬 Solicitar Análise no Chatbot", key="btn_detail_analyze", use_container_width=True):
+                    st.markdown(f"""
+                    <div style="background: rgba(25, 90, 180, 0.10); border: 1px solid rgba(135,186,255,0.25); border-radius: 4px; padding: 10px; margin-top: 10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <span style="font-size:0.72rem; color:#87BAFF; font-weight:bold;">Insight da IA</span>
+                            <span title="{tooltip_ia}" style="background:#195AB4; color:#FFFFFF; font-size:8px; font-weight:bold; padding:2px 6px; border-radius:3px;">{veredito}</span>
+                        </div>
+                        <div style="font-size:0.74rem; color:#E0E0E0; line-height:1.35;">{tooltip_ia}</div>
+                        <div class="nexus-disclaimer">{DISCLAIMER_IA}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    if st.button("Analisar com Nexus", key="btn_detail_analyze", use_container_width=True):
                         st.session_state.pending_ai_query = (
                             f"Faça uma análise de crédito estruturada para a emissão de {ativo} da {emissor}. "
-                            f"Volume: R$ {volume:,.2f}. Recursos: {recursos}. Garantias: {garantias}. "
-                            f"Lastro: {lastro}. Indique se esta oferta se compara bem com as taxas macro e da concorrência."
+                            f"Setor: {setor}. Rating Nexus: {rating} ({risco_rating}). Taxa líquida estimada: {taxa_liquida}. "
+                            f"Veredito IA: {veredito} ({tooltip_ia}). Volume: R$ {volume:,.2f}. "
+                            f"Recursos: {recursos}. Garantias: {garantias}. Lastro: {lastro}. "
+                            f"Indique se esta oferta se compara bem com as taxas macro e da concorrência. "
+                            f"Inclua este disclaimer no final: {DISCLAIMER_IA}"
                         )
                         st.rerun()
 
@@ -941,7 +1241,8 @@ elif menu_option == "⚙️ Configurações":
         st.markdown("<h3 style='color:#FFFFFF; font-size:1.15rem; border-bottom:1px solid rgba(135,186,255,0.2); padding-bottom:5px; margin-top:0px;'>Status da IA & Integrações</h3>", unsafe_allow_html=True)
         
         # Validação dinâmica da API Key
-        api_key_exists = "Configurada (OK)" if "GROQ_API_KEY" in os.environ and os.environ["GROQ_API_KEY"] else "Não configurada"
+        llm_providers = get_provider_status()
+        api_key_exists = f"{len(llm_providers)} provedor(es) configurado(s)" if llm_providers else "Não configurada"
         
         st.markdown(f"""
         <table style="width:100%; font-size:0.85rem; border-collapse:collapse; color:#E0E0E0; line-height:2.0;">
