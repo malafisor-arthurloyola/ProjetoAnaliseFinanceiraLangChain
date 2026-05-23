@@ -1,0 +1,26 @@
+# Virtual Environment
+venv/
+ExemploDeCódigoLangChain/venv/
+.venv/
+env/
+
+# Python Cache
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Sensitive Environment Variables
+.env
+
+# Large Data Files (to be generated or downloaded locally)
+data/
+ExemploDeCódigoLangChain/data/
+chroma_db/
+
+# OS/Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
