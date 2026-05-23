@@ -33,7 +33,27 @@ Abaixo está o cronograma e o status das etapas planejadas para a entrega expres
 
 ---
 
-## 2. Decisões Metodológicas Adotadas
+## 2. Arquitetura da Plataforma e Fluxo de Dados
+
+A plataforma Antigravity-BTG foi desenhada de forma modular e altamente integrada, visando performance, facilidade de auditoria técnica e governança. O fluxo de dados e controle entre os componentes da plataforma segue a arquitetura descrita abaixo:
+
+```mermaid
+graph TD
+    User([Usuário]) -->|Filtra UI / Chat| App[app.py - Streamlit Premium UI]
+    App -->|Sincroniza Contexto| Agent[agent_engine.py - LangGraph Agent]
+    Agent -->|Consome API| BCB[Banco Central SGS - Selic/CDI/IPCA]
+    Agent -->|Busca Semântica| Chroma[ChromaDB - ofertas_cvm_resolucao_160]
+    Agent -->|Consulta Cotações| YF[Yahoo Finance - yfinance]
+    Agent -->|Filtro Rígido| CSV[Data CVM - Pandas CSV]
+    Agent -->|Recomendações XP| XP[XP Portfolio JSON]
+    Agent -->|Ofertas Ativas| Meelion[Meelion Scraping JSON]
+    ChromaIndexer[chroma_indexer.py] -->|Gera Embeddings locais| Chroma
+    CSV -->|Alimenta| ChromaIndexer
+```
+
+---
+
+## 3. Decisões Metodológicas Adotadas
 
 ### 2.1. Arquitetura do Agente: ReAct (Reasoning + Acting)
 Optou-se pelo padrão **ReAct** utilizando a biblioteca **LangGraph**. Esse padrão permite que o modelo (LLM) decida dinamicamente qual ferramenta usar, analise o resultado retornado por ela, reformule seu raciocínio e decida o próximo passo. Isso é crucial para responder perguntas complexas do tipo: *"Como as taxas de CDB indexadas ao IPCA mudaram após a última decisão do Copom sobre a taxa Selic?"*
