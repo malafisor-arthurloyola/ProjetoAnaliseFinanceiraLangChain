@@ -1,0 +1,29 @@
+# BTG Pactual Brand Findings (Visual Language Guide)
+
+## Paleta de Cores
+- **Primária**: Tons de azul e branco.
+  - Azul Escuro (Wealth Management): Hex #05132A (R5 G19 B42)
+  - Azul Institucional: Hex #195AB4 (R25 G90 B180)
+  - Azul Claro (Asset Management): Hex #B1D2FF (R177 G210 B255)
+  - Outros azuis: #0B2859, #10408D, #307AE0, #549CFF, #6BAAFF, #87BAFF, #D2E5FF
+  - Branco: #FFFFFF
+- **Secundária**: Paleta de apoio para gráficos, tabelas e ilustrações. Inclui cinzas, marrons, vermelhos, laranjas, amarelos, verdes e roxos em diversos tons.
+
+## Tipografia
+- **Fonte Principal**: Moderat (by tighttype).
+  - Família geométrica sem serifa.
+  - Estilos: Thin a Black, incluindo versões Mono para números e dados.
+  - Títulos Extragrandes: Thin (equivale a H1).
+  - Títulos: Light (principal peso utilizado).
+  - Títulos em textos: Bold ou normal.
+  - Elementos UX (botões, menus): Peso normal.
+- **Números**: Versão Monoespecificada (Moderat Mono) para tabelas e dados financeiros.
+
+## Elementos de UI
+- **Tabelas**: Estrutura de linhas finas que acompanham o grid. Títulos com espessura de linha o dobro das linhas dos itens. Títulos em Bold, textos em Regular.
+- **Botões**: Estilo limpo, geralmente com cantos levemente arredondados ou retos, texto em caixa normal.
+- **Logotipo**: "btg pactual" em caixa baixa, com o círculo envolvendo "btg".
+
+## Estética Geral
+- **Sleek & Institutional**: Uso extensivo de espaços em branco (ou dark space no caso de dark mode), hierarquia clara e tipografia refinada.
+- **Foco em Dados**: Tabelas e gráficos são elementos centrais, desenhados para máxima clareza.

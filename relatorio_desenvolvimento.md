@@ -20,16 +20,18 @@ Abaixo está o cronograma e o status das etapas planejadas para a entrega expres
 - [x] **Etapa 4: Construção da Base Vetorial (ChromaDB)**
   - Criação do script `chroma_indexer.py` para carregar as ofertas da CVM.
   - Teste de embeddings locais (`all-MiniLM-L6-v2` via onnxruntime) e correção de tratamento de exceções do ChromaDB.
-  - Execução inicial da indexação em lotes de 500 rodando no background.
-- [ ] **Etapa 5: Implementação do Agente Inteligente (LangChain / LangGraph)**
+  - Execução inicial da indexação em lotes de 500 concluída no background.
+- [x] **Etapa 5: Implementação do Agente Inteligente (LangChain / LangGraph)**
   - Criação do agente ReAct para receber as perguntas do usuário, pesquisar dados via tools e responder.
   - Implementação das tools: busca de ofertas da CVM, dados macroeconômicos do BCB e comparativos no ChromaDB.
-- [ ] **Etapa 6: Desenvolvimento da Interface Visual (Streamlit)**
+  - *Refinamento em andamento*: Ajuste das diretrizes do prompt do sistema para forçar especificidade (evitar respostas teóricas/didáticas gerais) e exibição em tabelas Markdown.
+- [x] **Etapa 6: Desenvolvimento da Interface Visual (Streamlit)**
   - Construção do dashboard interativo com filtros.
-  - Integração de gráficos Plotly da evolução de taxas e tabelas st-aggrid.
+  - Integração de gráficos Plotly da evolução de taxas e tabelas.
   - Caixa de chat integrada para o usuário conversar diretamente com o agente de IA.
-- [ ] **Etapa 7: Testes, Refinamento e Documentação Final**
-  - Testes ponta a ponta e finalização do relatório de entrega.
+  - *Refinamento em andamento*: Coleta de feedback de UX para reestruturação do layout.
+- [/] **Etapa 7: Testes, Refinamento e Documentação Final**
+  - Testes ponta a ponta e finalização do relatório de entrega com base no novo design de UX.
 
 ---
 
@@ -116,7 +118,7 @@ Como salvaguarda contra esgotamento de tokens ou reinicialização de sessões d
 
 ## 6. Indagações e Senso Crítico do Usuário
 
-Este projeto é fruto de uma co-criação ativa, caracterizada por importantes direcionamentos técnicos e de segurança estabelecidos pelo usuário. Registramos abaixo os principais pontos levantados, que serviram como princípios orientadores para o desenvolvimento seguro e estruturado:
+Este projeto é fruto de uma co-criação activa, caracterizada por importantes direcionamentos técnicos e de segurança estabelecidos pelo usuário. Registramos abaixo os principais pontos levantados, que serviram como princípios orientadores para o desenvolvimento seguro e estruturado:
 
 ### 6.1. Governança e Versionamento incremental (Git/GitHub)
 - **Direcionamento**: O usuário determinou explicitamente que o código do projeto seja hospedado no repositório público `malafisor-arthurloyola/ProjetoAnaliseFinanceiraLangChain.git` e que cada etapa de desenvolvimento seja commitada de forma incremental ao ser concluída.
@@ -133,5 +135,17 @@ Este projeto é fruto de uma co-criação ativa, caracterizada por importantes d
 ### 6.4. Blindagem do Conhecimento Contra Limitações Técnicas de Contexto
 - **Direcionamento**: O usuário exigiu a anotação contínua do progresso no cofre Obsidian (via Zettelkasten) e a criação de um **Prompt de Resgate** para restauração imediata do contexto da sessão.
 - **Impacto**: Esta medida mitiga uma das principais vulnerabilidades dos agentes de IA de hoje — o esquecimento decorrente do esgotamento de janelas de contexto (tokens) ou encerramento abrupto da sessão. O cofre Obsidian atua como uma "memória RAM externa" que permite a qualquer agente de IA ou desenvolvedor parceiro restabelecer o trabalho em minutos.
+
+### 6.5. Senso Crítico sobre Respostas Genéricas vs. Especificidade de Dados
+- **Direcionamento**: O usuário apontou que as respostas do chatbot eram excessivamente teóricas e didáticas (explicando conceitos de debêntures e ações de forma enciclopédica), em vez de detalhar as ofertas e ativos reais indexados no banco vetorial da CVM. Ele questionou: *"não é possível que você indexou 13.000 itens e não consegue me dar informações específicas"*.
+- **Impacto**: Reformulamos imediatamente o prompt de sistema do agente ReAct para impor **Especificidade Mandatória**. A IA agora é proibida de dar respostas genéricas teóricas sobre finanças, a menos que solicitado. Ela é instruída a apresentar dados tabulares em Markdown legível com o nome do emissor, taxas exatas, volumes financeiros, datas de registro e coordenadores líderes.
+
+### 6.6. Estética do Dashboard (UX/UI) e Fluxo de Design Co-criativo
+- **Direcionamento**: O usuário manifestou descontentamento com a organização visual inicial da plataforma ("achei bagunçado o jeito que as informações estão no site"). Ele propôs uma metodologia ágil: gerar um prompt de requisitos UX/UI detalhado sobre o que é esperado do site, utilizá-lo para obter a resposta de uma IA especialista em UX/UI, e retornar os padrões definidos para que eu possa implementá-los na interface final.
+- **Impacto**: Aprovamos essa metodologia corporativa de design de interface (UX/UI). Criamos uma especificação funcional detalhada sobre as capacidades e dados da aplicação para que a IA de UX desenhe um layout limpo, intuitivo e com foco em usabilidade de nível premium, minimizando o retrabalho técnico e maximizando a experiência do usuário.
+
+---
+
+Este relatório reflete a evolução contínua da aplicação alinhada ao rigor metodológico e controle de qualidade do usuário.olvedor parceiro restabelecer o trabalho em minutos.
 
 Essas contribuições representam a aplicação prática do **senso crítico e governança** de TI, assegurando que o produto final seja seguro, transparente e de altíssimo nível.
