@@ -604,3 +604,32 @@ def comparar_arbitragem_xp_meelion() -> str:
     )
 
     return "\n".join(linhas)
+
+
+@tool
+def exportar_relatorio(conteudo_markdown: str, nome_arquivo: str = "relatorio_investimento_nexus.md") -> str:
+    """
+    Exportação de Relatórios Sob Demanda — Escreve e salva um relatório formatado em Markdown
+    em um arquivo físico local na raiz do projeto.
+
+    Use quando o usuário solicitar explicitamente o salvamento de arquivos/relatórios (ex: 'salve um relatório',
+    'exporte essa análise', 'gere um arquivo md com esse resumo').
+
+    Parâmetros:
+        conteudo_markdown - conteúdo formatado em Markdown a ser salvo no arquivo.
+        nome_arquivo      - nome do arquivo de destino (padrão: 'relatorio_investimento_nexus.md').
+    """
+    try:
+        import os
+        filename = os.path.basename(nome_arquivo)
+        if not filename.endswith(".md") and not filename.endswith(".txt"):
+            filename += ".md"
+            
+        filepath = os.path.join(os.getcwd(), filename)
+        
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(conteudo_markdown)
+            
+        return f"Sucesso: Relatório salvo localmente em '{filepath}'."
+    except Exception as e:
+        return f"Erro ao exportar o relatório: {str(e)}"

@@ -24,6 +24,7 @@ from tools_custom import (
     consultar_yfinance,
     calcular_equivalencia_fiscal,
     comparar_arbitragem_xp_meelion,
+    exportar_relatorio,
 )
 
 # ─── Configurações ─────────────────────────────────────────────────────────────
@@ -66,6 +67,7 @@ def build_agent():
         consultar_yfinance,
         calcular_equivalencia_fiscal,
         comparar_arbitragem_xp_meelion,
+        exportar_relatorio,
     ]
 
     system_prompt = """Você é o Nexus, um analista financeiro sênior especializado em mercado de capitais brasileiro e investimentos de renda fixa.
@@ -82,6 +84,7 @@ Você possui acesso a dados robustos por meio de ferramentas reais que deve util
 7. `consultar_yfinance` — Traz cotações em tempo real de FIIs de Renda Fixa ou Ações listados na B3.
 8. `calcular_equivalencia_fiscal` — Motor de Equivalência Fiscal: calcula taxa líquida após IR e compara ativos isentos vs. tributáveis.
 9. `comparar_arbitragem_xp_meelion` — Identifica oportunidades de arbitragem comparando XP vs. Meelion.
+10. `exportar_relatorio` — Escreve e salva relatórios detalhados em formato Markdown em arquivo físico local.
 
 ### Regras de Cálculo e Classificação (Guia de Referência Técnica — VERDADE Única):
 - **CDI Anualizado:** SEMPRE calcule CDI = Selic Meta - 0,10 p.p. Nunca exiba o CDI diário (~0,05%) como taxa anual.
