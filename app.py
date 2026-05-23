@@ -264,36 +264,89 @@ def load_realtime_indicators():
     raw_str = consultar_indicadores_macro.func()
     
     # Valores fallback padrão
-    selic_val = "10.50%"
-    cdi_val = "10.40%"
-    ipca_val = "0.38%"
+    selic_val = "14.75% a.a."
+    cdi_val = "14.65% a.a."
+    ipca_val = "0.43%"
     selic_date = "23/05/2026"
-    cdi_date = "21/05/2026"
+    cdi_date = "23/05/2026"
     ipca_date = "04/2026"
     
     # Parsing simples e robusto da string retornada
     for line in raw_str.split("\n"):
         if "Selic Meta:" in line:
             parts = line.split(":")
-            selic_val = parts[1].split("(")[0].strip()
+            selic_val = parts[1].split("(")[0].split("[")[0].strip()
             if "vigente em" in line:
-                selic_date = line.split("vigente em")[-1].replace(")", "").strip()
+                selic_date = line.split("vigente em")[-1].replace(")", "").replace("]", "").strip()
         elif "Taxa CDI" in line:
             parts = line.split(":")
-            cdi_val = parts[1].split("(")[0].strip()
-            if "referência de" in line:
-                cdi_date = line.split("referência de")[-1].replace(")", "").strip()
+            cdi_val = parts[1].split("(")[0].split("[")[0].strip()
+            if "vigente em" in line:
+                cdi_date = line.split("vigente em")[-1].replace(")", "").replace("]", "").strip()
+            elif "referência de" in line:
+                cdi_date = line.split("referência de")[-1].replace(")", "").replace("]", "").strip()
         elif "IPCA" in line:
             parts = line.split(":")
-            ipca_val = parts[1].split("(")[0].strip()
+            ipca_val = parts[1].split("(")[0].split("[")[0].strip()
             if "referente a" in line:
-                ipca_date = line.split("referente a")[-1].replace(")", "").strip()
+                ipca_date = line.split("referente a")[-1].replace(")", "").replace("]", "").strip()
                 
     return {
         "selic": selic_val, "selic_date": selic_date,
         "cdi": cdi_val, "cdi_date": cdi_date,
         "ipca": ipca_val, "ipca_date": ipca_date
     }
+
+
+def gerar_insight_ia(row, selic_str, cdi_str):
+    """Gera insights financeiros dinâmicos para cada emissão da CVM."""
+    ativo = str(row.get("Valor_Mobiliario", "")).upper().strip()
+    emissor = str(row.get("Nome_Emissor", "")).strip()
+    
+    try:
+        cdi_val = float(cdi_str.replace("%", "").replace("a.a.", "").strip())
+    except:
+        cdi_val = 14.65
+
+    # Isenção de IR para PF (LCI, LCA, CRI, CRA, LIG, Debêntures Incentivadas)
+    isentos = ["CRI", "CRA", "LCI", "LCA", "LIG"]
+    eh_isento = any(x in ativo for x in isentos) or "INCENTIVADA" in ativo
+    
+    # Classificação real do Setor (nunca N/D)
+    if any(x in ativo for x in ["LFT", "NTN", "TESOURO"]):
+        setor = "Soberano"
+    elif any(x in ativo for x in ["CDB", "LCI", "LCA", "LF"]):
+        setor = "Bancário"
+    elif "CRI" in ativo:
+        setor = "Imobiliário"
+    elif "CRA" in ativo:
+        setor = "Agronegócio"
+    elif "DEB" in ativo or "DEBENTURE" in ativo:
+        setor = "Infraestrutura" if "INCENTIVADA" in ativo else "Industrial"
+    else:
+        setor = "Corporativo"
+
+    # Insights recomendados baseados no tipo e setor
+    if eh_isento:
+        # Equivalente a CDB calculado com alíquota média de 15% (prazo longo)
+        taxa_eq = cdi_val / 0.85
+        if "CRA" in ativo:
+            return f"🌾 Isento [{setor}]. Lastro agro. Isenção atrativa, equivale a CDB de ~{taxa_eq:.2f}% a.a."
+        elif "CRI" in ativo:
+            return f"🏢 Isento [{setor}]. Lastro imobiliário. Equivale a CDB de ~{taxa_eq:.2f}% a.a."
+        elif "DEB" in ativo or "DEBENTURE" in ativo:
+            return f"⚡ Isento [{setor}]. Incentivada (infra). Retorno líquido superior."
+        else:
+            return f"✅ Isento [{setor}]. Isenção fiscal PF. Excelente custo-benefício."
+    else:
+        if "CDB" in ativo:
+            return f"🛡️ Bancário [{setor}]. Cobertura FGC até R$ 250k. Benchmark de rentabilidade: {cdi_str}."
+        elif "DEB" in ativo or "DEBENTURE" in ativo:
+            return f"🏭 Tributado [{setor}]. Risco de Crédito Privado. Exige análise de rating de {emissor[:12]}."
+        elif "Soberano" in setor:
+            return f"🏛️ Soberano [{setor}]. Risco zero do Tesouro Nacional. Benchmark: {selic_str}."
+        else:
+            return f"💼 {setor}. Rendimento tributável. Verifique prazos e ratings."
 
 # ─── Carregamento Inicial de Dados ──────────────────────────────────────────
 
@@ -528,14 +581,22 @@ if menu_option == "📈 Dashboard CVM":
             st.markdown("<div class='dashboard-panel'>", unsafe_allow_html=True)
             st.markdown("<h3 style='margin-top:0px; font-size:1.25rem;'>📋 Emissões Registradas</h3>", unsafe_allow_html=True)
             
+            # Adicionar coluna Insight IA com base no cenário macroeconômico atual
+            df_insight = df_filtrado.copy()
+            df_insight["Insight IA"] = df_insight.apply(
+                lambda row: gerar_insight_ia(row, kpi_data["selic"], kpi_data["cdi"]), 
+                axis=1
+            )
+            
             display_cols = {
                 "Nome_Emissor": "Issuer",
                 "Valor_Mobiliario": "Asset",
                 "Valor_Total_Registrado": "Volume (R$)",
-                "Status_Requerimento": "Status"
+                "Status_Requerimento": "Status",
+                "Insight IA": "Insight IA"
             }
             
-            df_display = df_filtrado[list(display_cols.keys())].copy()
+            df_display = df_insight[list(display_cols.keys())].copy()
             df_display = df_display.rename(columns=display_cols)
             
             event = st.dataframe(
@@ -544,6 +605,9 @@ if menu_option == "📈 Dashboard CVM":
                     "Volume (R$)": st.column_config.NumberColumn(
                         format="R$ %.2f",
                         help="Volume financeiro total da oferta"
+                    ),
+                    "Insight IA": st.column_config.TextColumn(
+                        help="Insight gerado automaticamente pela inteligência da plataforma"
                     )
                 },
                 hide_index=True,
