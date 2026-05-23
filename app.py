@@ -266,6 +266,34 @@ def load_realtime_indicators():
         "ipca": ipca_val, "ipca_date": ipca_date
     }
 
+# ─── Funções de Auxiliares de UX/UI ───────────────────────────────────────────
+
+def get_default_ativos(options):
+    """Retorna os ativos padrão correspondentes às opções encontradas no CSV."""
+    defaults = []
+    keywords = ["Imobili", "Agroneg", "Deb", "Comercia"]
+    for kw in keywords:
+        for opt in options:
+            if kw.lower() in opt.lower():
+                defaults.append(opt)
+                break
+    if not defaults and options:
+        defaults = [options[0]]
+    return list(set(defaults))
+
+
+def get_default_status(options):
+    """Retorna os status padrão de forma dinâmica para evitar erros de valor."""
+    defaults = []
+    for val in ["Deferido", "Registrado"]:
+        for opt in options:
+            if val.lower() in opt.lower():
+                defaults.append(opt)
+    if not defaults and options:
+        defaults = options
+    return list(set(defaults))
+
+
 # ─── Carregamento Inicial de Dados ──────────────────────────────────────────
 
 df_cvm = load_cvm_dataset()
@@ -290,13 +318,29 @@ if "pending_ai_query" not in st.session_state:
 
 # Estados persistentes dos filtros para evitar perda ao fechar painel lateral
 if "filter_ativos" not in st.session_state:
-    st.session_state.filter_ativos = ["CRI", "CRA", "Debêntures", "Nota Comercial"]
+    st.session_state.filter_ativos = None
 if "filter_lider" not in st.session_state:
     st.session_state.filter_lider = ""
 if "filter_status" not in st.session_state:
-    st.session_state.filter_status = ["Deferido", "Registrado"]
+    st.session_state.filter_status = None
 if "filter_volume" not in st.session_state:
     st.session_state.filter_volume = (0.0, 1500.0) # Em Milhões
+
+# Inicialização dinâmica baseada nas opções reais da planilha CVM carregada
+if not df_cvm.empty:
+    ativos_disponiveis_init = sorted(df_cvm["Valor_Mobiliario"].dropna().unique().tolist())
+    status_disponiveis_init = sorted(df_cvm["Status_Requerimento"].dropna().unique().tolist())
+    
+    if st.session_state.filter_ativos is None:
+        st.session_state.filter_ativos = get_default_ativos(ativos_disponiveis_init)
+    if st.session_state.filter_status is None:
+        st.session_state.filter_status = get_default_status(status_disponiveis_init)
+else:
+    if st.session_state.filter_ativos is None:
+        st.session_state.filter_ativos = []
+    if st.session_state.filter_status is None:
+        st.session_state.filter_status = []
+
 
 # ─── 1. TOP BAR (Logo + KPIs Globais do Banco Central) ────────────────────────
 
