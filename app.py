@@ -146,7 +146,7 @@ def load_cvm_dataset():
 @st.cache_data(ttl=1800)  # Atualiza a cada 30 minutos
 def load_realtime_indicators():
     """Busca e extrai os dados reais de Selic, CDI e IPCA do Banco Central."""
-    raw_str = consultar_indicadores_macro()
+    raw_str = consultar_indicadores_macro.func()
     
     # Valores fallback padrão
     selic_val = "10.50%"
@@ -305,7 +305,7 @@ with col_dash:
                 df_tipo,
                 values="Volume_Bi",
                 names="Valor_Mobiliario",
-                color_discrete_sequence=px.colors.sequential.Ales,
+                color_discrete_sequence=px.colors.sequential.Blues,
                 hole=0.4,
                 labels={"Volume_Bi": "Volume (Bi R$)", "Valor_Mobiliario": "Ativo"}
             )
