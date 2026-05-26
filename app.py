@@ -14,7 +14,7 @@ import plotly.express as px
 import streamlit as st
 
 from agent_engine import get_provider_status, invoke_agent_with_key_fallback
-from tools_custom import consultar_indicadores_macro
+from tools_custom import consultar_indicadores_macro, calcular_nexus_score
 
 # ─── Configuração de Layout da Página ──────────────────────────────────────────
 
@@ -472,6 +472,20 @@ def prepare_nexus_dataset(df, kpi_data):
     enriched["Taxa Bruta"] = enriched["Taxa_Bruta_Estimada"].map(lambda value: f"{value:.2f}% a.a.")
     enriched["Aliquota IR"] = enriched["Aliquota_IR"].map(lambda value: "Isento" if value == 0 else f"{value * 100:.1f}%")
     enriched["Veredito IA"] = enriched.apply(lambda row: f"{row['Veredito_IA']} - {row['Tooltip_IA']}", axis=1)
+    score_results = enriched.apply(
+        lambda r: calcular_nexus_score(
+            taxa_liquida=r["Taxa_Liquida"], cdi_atual=cdi_value,
+            rating=r["Rating"], setor=r["Setor"],
+            isento=r["Isento_IR"], aliquota_ir=r["Aliquota_IR"],
+            volume=r["Valor_Total_Registrado"],
+            titulo_sustentavel=str(r.get("Titulo_classificado_como_sustentavel", "")),
+            intent="padrao",
+        ),
+        axis=1, result_type="expand"
+    )
+    enriched["NexusScore_100"] = score_results["score"].apply(lambda x: f"{x:.0f}")
+    enriched["NexusScore_Stars"] = score_results["stars"].apply(lambda x: "⭐" * int(x) + "☆" * (5 - int(x)))
+    enriched["NexusScore_Label"] = score_results["label"]
     return enriched
 
 
@@ -590,11 +604,11 @@ if "pending_ai_query" not in st.session_state:
 
 # Estados persistentes dos filtros para evitar perda ao fechar painel lateral
 if "filter_ativos" not in st.session_state:
-    st.session_state.filter_ativos = None
+    st.session_state.filter_ativos = []
 if "filter_lider" not in st.session_state:
     st.session_state.filter_lider = ""
 if "filter_status" not in st.session_state:
-    st.session_state.filter_status = None
+    st.session_state.filter_status = []
 if "filter_volume" not in st.session_state:
     st.session_state.filter_volume = (0.0, 1500.0) # Em Milhões
 
@@ -602,43 +616,6 @@ if "intent_filter" not in st.session_state:
     st.session_state.intent_filter = None
 if "selected_offer_context" not in st.session_state:
     st.session_state.selected_offer_context = None
-
-# Auxiliares de correspondência
-def get_default_ativos(options):
-    defaults = []
-    keywords = ["Imobili", "Agroneg", "Deb", "Comercia"]
-    for kw in keywords:
-        for opt in options:
-            if kw.lower() in opt.lower():
-                defaults.append(opt)
-                break
-    if not defaults and options:
-        defaults = [options[0]]
-    return list(set(defaults))
-
-def get_default_status(options):
-    defaults = []
-    for val in ["Deferido", "Registrado"]:
-        for opt in options:
-            if val.lower() in opt.lower():
-                defaults.append(opt)
-    if not defaults and options:
-        defaults = options
-    return list(set(defaults))
-
-if not df_cvm.empty:
-    ativos_disponiveis_init = sorted(df_cvm["Valor_Mobiliario"].dropna().unique().tolist())
-    status_disponiveis_init = sorted(df_cvm["Status_Requerimento"].dropna().unique().tolist())
-    
-    if st.session_state.filter_ativos is None:
-        st.session_state.filter_ativos = get_default_ativos(ativos_disponiveis_init)
-    if st.session_state.filter_status is None:
-        st.session_state.filter_status = get_default_status(status_disponiveis_init)
-else:
-    if st.session_state.filter_ativos is None:
-        st.session_state.filter_ativos = []
-    if st.session_state.filter_status is None:
-        st.session_state.filter_status = []
 
 # ─── 1. BARRA LATERAL (Menu de Navegação Vertical) ───────────────────────────
 
@@ -846,6 +823,7 @@ if menu_option == "📈 Dashboard CVM":
             )
             
             display_cols = {
+                "NexusScore_Stars": "Nexus",
                 "Nome_Emissor": "Emissor",
                 "Valor_Mobiliario": "Ativo",
                 "Setor": "Setor",
@@ -853,8 +831,6 @@ if menu_option == "📈 Dashboard CVM":
                 "Rating": "Rating",
                 "Valor_Total_Registrado": "Volume (R$)",
                 "Status_Requerimento": "Status",
-                "Veredito IA": "Veredito IA",
-                "Insight IA": "Insight Detalhado"
             }
             
             df_display = df_insight[list(display_cols.keys())].copy()
@@ -880,6 +856,11 @@ if menu_option == "📈 Dashboard CVM":
             )
             st.markdown(
                 f"<div class='nexus-disclaimer'>{DISCLAIMER_IA}</div>",
+                unsafe_allow_html=True,
+            )
+            st.markdown(
+                "<div style='font-size:0.72rem;color:#87BAFF;text-align:center;margin-top:6px;'>"
+                "💡 Selecione uma oferta na tabela para ver detalhes no painel ao lado</div>",
                 unsafe_allow_html=True,
             )
             st.markdown("</div>", unsafe_allow_html=True)
@@ -1039,6 +1020,9 @@ if menu_option == "📈 Dashboard CVM":
                     taxa_liquida = selected_offer.get("Taxa Liquida", "N/D")
                     veredito = selected_offer.get("Veredito_IA", "Neutro")
                     tooltip_ia = selected_offer.get("Tooltip_IA", "")
+                    nexus_score = selected_offer.get("NexusScore_100", "N/D")
+                    nexus_stars = selected_offer.get("NexusScore_Stars", "")
+                    nexus_label = selected_offer.get("NexusScore_Label", "")
 
                     isento_txt = "Sim [ISENTO IR]" if incentivado == "Sim" else "Não"
                     esg_txt = "Sim [Sustentável]" if sustentavel == "Sim" else "Não"
@@ -1128,16 +1112,18 @@ if menu_option == "📈 Dashboard CVM":
                     )
                     st.plotly_chart(fig_flow, use_container_width=True, config={'displayModeBar': False})
 
-                    # Análise Rápida de Recomendação da IA (Image 3 Style)
-                    st.markdown("""
+                    # NexusScore — Score Composto (0-100)
+                    badge_color = {"Excelente": "#2DB071", "Bom": "#195AB4", "Regular": "#B8860B", "Atencao": "#E83E48"}.get(nexus_label, "#195AB4")
+                    badge_text = {"Excelente": "EXCELENTE", "Bom": "FAVORAVEL", "Regular": "NEUTRO", "Atencao": "ATENCAO"}.get(nexus_label, "NEUTRO")
+                    st.markdown(f"""
                     <div style="background: rgba(25, 90, 180, 0.08); border: 1px solid rgba(135,186,255,0.2); border-radius: 4px; padding: 10px; margin-top: 10px;">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                            <span style="font-size:0.72rem; color:#87BAFF; font-weight:bold;">Análise Recomendação IA</span>
-                            <span style="background:#2DB071; color:#FFFFFF; font-size:8px; font-weight:bold; padding:2px 6px; border-radius:3px;">RECOMENDADO</span>
+                            <span style="font-size:0.72rem; color:#87BAFF; font-weight:bold;">NexusScore — Rating Composto</span>
+                            <span style="background:{badge_color}; color:#FFFFFF; font-size:8px; font-weight:bold; padding:2px 6px; border-radius:3px;">{badge_text}</span>
                         </div>
                         <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.75rem;">
-                            <span style="color:#87BAFF;">Score Convicção: <strong style="color:#FFFFFF;">9.1 / 10</strong></span>
-                            <span style="color:#87BAFF;">Risco: <strong style="color:#2DB071;">BAIXO</strong></span>
+                            <span style="color:#87BAFF;">Score: <strong style="color:#FFFFFF;">{nexus_score}/100</strong> {nexus_stars}</span>
+                            <span style="color:#87BAFF;">Rating: <strong style="color:#FFFFFF;">{rating}</strong> ({risco_rating})</span>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)

@@ -5,6 +5,7 @@ dados da CVM, do Banco Central (SGS), do ChromaDB (busca semântica), da XP, da 
 """
 
 import json
+import math
 import os
 import unicodedata
 import warnings
@@ -149,6 +150,92 @@ def alerta_high_yield(taxa_str: str, cdi_anual: float = 14.40) -> str:
     except Exception:
         pass
     return ""
+
+
+# ─── NexusScore Scoring Engine ────────────────────────────────────────────────
+
+PESOS_INTENT = {
+    "padrao":     {"rentabilidade": 0.30, "seguranca": 0.35, "fiscal": 0.15, "porte": 0.10, "liquidez": 0.05, "esg": 0.05},
+    "seguranca":  {"rentabilidade": 0.15, "seguranca": 0.45, "fiscal": 0.10, "porte": 0.10, "liquidez": 0.15, "esg": 0.05},
+    "rentabilidade": {"rentabilidade": 0.45, "seguranca": 0.10, "fiscal": 0.15, "porte": 0.10, "liquidez": 0.10, "esg": 0.10},
+    "renda_mensal": {"rentabilidade": 0.25, "seguranca": 0.10, "fiscal": 0.15, "porte": 0.10, "liquidez": 0.30, "esg": 0.10},
+    "agro":       {"rentabilidade": 0.25, "seguranca": 0.15, "fiscal": 0.20, "porte": 0.10, "liquidez": 0.10, "esg": 0.20},
+}
+
+
+def _normalizar_rating(rating_str: str) -> float:
+    mapa = {"AAA": 10.0, "AA": 8.5, "A": 7.0, "A-": 6.0, "BBB+": 5.5, "BBB": 4.5, "BB": 3.0, "B": 1.5, "CCC": 0.5}
+    return mapa.get(str(rating_str).strip().upper(), 3.0)
+
+
+def _fgc_bonus(setor: str) -> float:
+    return 1.5 if str(setor).strip().lower() in ("bancario", "bancário", "bancario/financeiro") else 0.0
+
+
+def _score_rentabilidade(taxa_liquida: float, cdi_atual: float) -> float:
+    if cdi_atual <= 0:
+        return 5.0
+    return min((taxa_liquida / cdi_atual) * 5, 10.0)
+
+
+def _score_seguranca(rating_str: str, setor: str) -> float:
+    return min(_normalizar_rating(rating_str) + _fgc_bonus(setor), 10.0)
+
+
+def _score_fiscal(isento: bool, aliquota_ir: float) -> float:
+    if isento:
+        return 10.0
+    if aliquota_ir <= 0.15:
+        return 7.0
+    if aliquota_ir <= 0.175:
+        return 5.0
+    return 3.0
+
+
+def _score_porte(volume: float) -> float:
+    if pd.isna(volume) or volume <= 0:
+        return 3.0
+    return min(max((math.log10(max(volume, 1)) - 5) * 2, 1.0), 10.0)
+
+
+def _score_liquidez(setor: str) -> float:
+    setor_lower = str(setor).strip().lower()
+    if "soberano" in setor_lower:
+        return 9.0
+    if "bancario" in setor_lower or "bancário" in setor_lower:
+        return 7.0
+    if "imobiliario" in setor_lower or "imobiliário" in setor_lower:
+        return 5.0
+    return 4.0
+
+
+def _score_esg(titulo_sustentavel: str) -> float:
+    return 10.0 if str(titulo_sustentavel).strip().upper() == "S" else 5.0
+
+
+def calcular_nexus_score(taxa_liquida: float, cdi_atual: float, rating: str, setor: str, isento: bool, aliquota_ir: float, volume: float, titulo_sustentavel: str = "", intent: str = "padrao") -> dict:
+    pesos = PESOS_INTENT.get(intent, PESOS_INTENT["padrao"])
+    scores = {
+        "rentabilidade": _score_rentabilidade(taxa_liquida, cdi_atual),
+        "seguranca": _score_seguranca(rating, setor),
+        "fiscal": _score_fiscal(isento, aliquota_ir),
+        "porte": _score_porte(volume),
+        "liquidez": _score_liquidez(setor),
+        "esg": _score_esg(titulo_sustentavel),
+    }
+    final = sum(scores[k] * pesos[k] for k in pesos) * 10
+    if taxa_liquida > cdi_atual + 4:
+        final = max(final - 20, 0)
+    if final >= 80:
+        label = "Excelente"
+    elif final >= 60:
+        label = "Bom"
+    elif final >= 40:
+        label = "Regular"
+    else:
+        label = "Atencao"
+    stars = min(max(round(final / 20), 1), 5)
+    return {"score": round(final, 1), "label": label, "stars": stars}
 
 
 # ─── Definição das Tools ──────────────────────────────────────────────────────
@@ -633,3 +720,98 @@ def exportar_relatorio(conteudo_markdown: str, nome_arquivo: str = "relatorio_in
         return f"Sucesso: Relatório salvo localmente em '{filepath}'."
     except Exception as e:
         return f"Erro ao exportar o relatório: {str(e)}"
+
+
+@tool
+def calcular_ranking_ofertas(intent: str = "padrao", tipo: str = "", limite: int = 10) -> str:
+    """
+    Calcula o NexusScore e retorna o ranking das melhores ofertas da base CVM.
+    O NexusScore (0-100) pondera Rentabilidade Líquida, Segurança/Rating, Eficiência Fiscal,
+    Porte do Emissor, Liquidez e ESG, com pesos ajustáveis por perfil de investidor.
+
+    Parâmetros:
+        intent — perfil do investidor: 'padrao', 'seguranca', 'rentabilidade', 'renda_mensal', 'agro'
+        tipo   — filtrar por tipo de ativo (opcional, ex: 'Debêntures', 'CRI', 'CDB')
+        limite — quantidade de resultados no ranking (padrão: 10)
+    """
+    if _df_cvm.empty:
+        return "A base de ofertas CVM está vazia. Execute chroma_indexer.py primeiro."
+
+    # Obter CDI atual
+    indicadores = consultar_indicadores_macro.func()
+    cdi_atual = 14.65
+    for line in indicadores.split("\n"):
+        if "CDI (Anualizada)" in line:
+            try:
+                cdi_str = line.split(":")[1].split("%")[0].strip()
+                cdi_atual = float(cdi_str.replace(",", "."))
+            except (ValueError, IndexError):
+                pass
+
+    df = _df_cvm.copy()
+    if tipo:
+        df = df[df["Valor_Mobiliario"].map(str).map(normalize_text).str.contains(normalize_text(tipo), case=False, na=False)]
+
+    if df.empty:
+        return "Nenhuma oferta encontrada com os filtros informados."
+
+    # Enriquecer dados e calcular score
+    resultados = []
+    for _, row in df.iterrows():
+        setor = get_setor(str(row.get("Valor_Mobiliario", "")))
+        ativo_upper = str(row.get("Valor_Mobiliario", "")).upper()
+        prazo_dias = 721
+        try:
+            data_reg = pd.to_datetime(row.get("Data_Registro"), errors="coerce")
+            data_enc = pd.to_datetime(row.get("Data_Encerramento"), errors="coerce")
+            if pd.notna(data_reg) and pd.notna(data_enc):
+                prazo_dias = max((data_enc - data_reg).days, 1)
+        except Exception:
+            pass
+        aliquota = get_aliquota_ir(prazo_dias)
+        eh_isento = any(x in ativo_upper for x in ["LCI", "LCA", "CRI", "CRA", "LIG"]) or "INCENTIVADA" in ativo_upper
+
+        spread_map = {"Soberano (Tesouro Nacional)": -0.10, "Bancário/Financeiro": 0.35, "Imobiliário": 1.25, "Agronegócio": 1.25, "Industrial/Infraestrutura": 1.70, "Crédito Privado": 2.20}
+        spread = spread_map.get(setor, 1.0)
+        taxa_bruta = cdi_atual + spread
+        volume = float(row.get("Valor_Total_Registrado", 0) or 0)
+        if volume > 0 and volume < 100_000_000:
+            taxa_bruta += 0.45
+        taxa_liquida = taxa_bruta * (1 - aliquota) if not eh_isento else taxa_bruta
+
+        rating_map = {"Soberano (Tesouro Nacional)": "AAA", "Bancário/Financeiro": "AA", "Imobiliário": "A-", "Agronegócio": "A-", "Industrial/Infraestrutura": "BBB+", "Crédito Privado": "BBB"}
+        rating = rating_map.get(setor, "BBB+")
+        if volume >= 300_000_000:
+            rating = "AA"
+        elif volume >= 100_000_000:
+            rating = "A"
+
+        sust = str(row.get("Titulo_classificado_como_sustentavel", ""))
+
+        score = calcular_nexus_score(taxa_liquida, cdi_atual, rating, setor, eh_isento, aliquota, volume, sust, intent)
+
+        resultados.append({
+            "score": score["score"], "stars": score["stars"], "label": score["label"],
+            "emissor": row.get("Nome_Emissor", "N/D"), "tipo": row.get("Valor_Mobiliario", "N/D"),
+            "setor": setor, "taxa_bruta": round(taxa_bruta, 2), "taxa_liquida": round(taxa_liquida, 2),
+            "rating": rating, "volume": volume, "isento": eh_isento,
+        })
+
+    resultados.sort(key=lambda x: x["score"], reverse=True)
+    top = resultados[:limite]
+
+    linhas = [
+        f"🏆 RANKING NEXUSSCORE — Perfil: {intent.upper()} | CDI: {cdi_atual:.2f}%",
+        f"Total de ofertas analisadas: {len(resultados):,}",
+    ]
+    for i, r in enumerate(top, 1):
+        estrelas = "⭐" * r["stars"] + "☆" * (5 - r["stars"])
+        ir_txt = "ISENTO" if r["isento"] else "Tributado"
+        volume_txt = f" | Volume: R$ {r['volume']/1e6:.1f}M" if r['volume'] > 0 else ""
+        linhas.append(
+            f"\n  {i}. {estrelas} ({r['score']}/100) — {r['label']}\n"
+            f"     {r['tipo']} — {r['emissor']} [{r['setor']}]\n"
+            f"     Taxa: {r['taxa_bruta']:.2f}% bruta → {r['taxa_liquida']:.2f}% líquida | Rating: {r['rating']} | {ir_txt}{volume_txt}"
+        )
+
+    return "\n".join(linhas)

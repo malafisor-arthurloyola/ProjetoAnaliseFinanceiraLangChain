@@ -33,6 +33,7 @@ from tools_custom import (
     calcular_equivalencia_fiscal,
     comparar_arbitragem_xp_meelion,
     exportar_relatorio,
+    calcular_ranking_ofertas,
 )
 
 
@@ -55,6 +56,7 @@ Voce possui acesso a dados robustos por meio de ferramentas reais que deve utili
 8. `calcular_equivalencia_fiscal`: calcula taxa liquida apos IR e compara ativos isentos vs. tributaveis.
 9. `comparar_arbitragem_xp_meelion`: identifica oportunidades de arbitragem comparando XP vs. Meelion.
 10. `exportar_relatorio`: salva relatorios detalhados em Markdown.
+11. `calcular_ranking_ofertas`: calcula o NexusScore (0-100) e retorna um ranking das melhores ofertas CVM, com pesos ajustaveis por perfil (seguranca, rentabilidade, renda_mensal, agro).
 
 Regras de calculo e classificacao:
 - CDI anualizado: sempre calcule CDI = Selic Meta - 0,10 p.p. Nunca exiba CDI diario como taxa anual.
@@ -174,6 +176,7 @@ def build_agent(api_key=None, provider="groq", model=None):
         calcular_equivalencia_fiscal,
         comparar_arbitragem_xp_meelion,
         exportar_relatorio,
+        calcular_ranking_ofertas,
     ]
 
     return create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
