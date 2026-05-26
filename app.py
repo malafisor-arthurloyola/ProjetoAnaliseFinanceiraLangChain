@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import streamlit as st
 
 from agent_engine import get_provider_status, invoke_agent_with_key_fallback
@@ -30,17 +31,38 @@ st.set_page_config(
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;600;700;800&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
+    /* ─── CSS Design Tokens ─── */
+    :root {
+        --bg-primary: #05132A;
+        --bg-surface: #0B2859;
+        --bg-card: rgba(11, 40, 89, 0.3);
+        --accent-blue: #195AB4;
+        --accent-blue-dark: #10408D;
+        --accent-light: #87BAFF;
+        --accent-bright: #B1D2FF;
+        --text-primary: #FFFFFF;
+        --text-secondary: #87BAFF;
+        --text-muted: #B1D2FF;
+        --success: #2DB071;
+        --warning: #B8860B;
+        --danger: #E83E48;
+        --border-subtle: rgba(135, 186, 255, 0.12);
+        --border-active: rgba(135, 186, 255, 0.25);
+        --font-heading: 'Outfit', sans-serif;
+        --font-body: 'Inter', sans-serif;
+    }
+
     /* Estilos Globais */
     .stApp {
-        background-color: #05132A !important; /* Background Base BTG Wealth */
-        color: #FFFFFF !important;
-        font-family: 'Inter', sans-serif;
+        background-color: var(--bg-primary) !important;
+        color: var(--text-primary) !important;
+        font-family: var(--font-body) !important;
     }
     
     /* Configuração de títulos */
     h1, h2, h3, h4, h5, h6 {
-        font-family: 'Outfit', sans-serif !important;
-        color: #FFFFFF !important;
+        font-family: var(--font-heading) !important;
+        color: var(--text-primary) !important;
         font-weight: 600 !important;
     }
     
@@ -255,6 +277,34 @@ st.markdown("""
         0% { background-position: 0% 0; }
         100% { background-position: -220% 0; }
     }
+
+    /* ─── High Yield Pulse Animation ─── */
+    @keyframes hyPulse {
+        0% { box-shadow: 0 0 0 0 rgba(232, 62, 72, 0.5); }
+        70% { box-shadow: 0 0 0 10px rgba(232, 62, 72, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(232, 62, 72, 0); }
+    }
+    .high-yield-pulse {
+        animation: hyPulse 2s infinite;
+        border-color: var(--danger) !important;
+    }
+    .high-yield-badge {
+        display: inline-block;
+        background: rgba(232, 62, 72, 0.15);
+        color: var(--danger);
+        border: 1px solid rgba(232, 62, 72, 0.3);
+        border-radius: 3px;
+        padding: 1px 6px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+    }
+
+    /* ─── Progress Bar Override ─── */
+    div[data-testid="stDataFrame"] div[role="progressbar"] {
+        background-color: var(--accent-blue) !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -333,6 +383,36 @@ def parse_percent_value(value, default=0.0):
         return float(cleaned.split()[0])
     except (TypeError, ValueError, IndexError):
         return default
+
+
+def _sparkline_fig(values, color="#87BAFF", height=30):
+    """Mini sparkline chart for KPI cards."""
+    fig = go.Figure(go.Scatter(
+        y=values, mode="lines",
+        line=dict(color=color, width=1.2),
+        fill="tozeroy", fillcolor=f"rgba{tuple(int(color[i:i+2], 16) for i in (1, 3, 5)) + (0.12,)}",
+    ))
+    fig.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(t=0, b=0, l=0, r=0), height=height,
+        xaxis=dict(visible=False, showgrid=False),
+        yaxis=dict(visible=False, showgrid=False),
+        showlegend=False,
+    )
+    return fig
+
+
+def _build_spark_data(current_val, n=6, noise=0.05):
+    """Generate synthetic history around current value for sparkline."""
+    import random
+    base = current_val
+    vals = []
+    for i in range(n):
+        frac = i / (n - 1)
+        drift = (random.random() - 0.5) * 2 * noise * base
+        vals.append(base - (base * noise * (1 - frac)) + drift)
+    vals[-1] = current_val
+    return vals
 
 
 def classify_sector(row):
@@ -642,33 +722,46 @@ with st.sidebar:
 
 # ─── 2. TOP BAR (Logotipo e KPIs do Banco Central - Spans the Main Content) ───
 
-st.write(f"""
-<div class="top-bar-container">
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <span style="font-family: 'Outfit', sans-serif; font-size: 18px; font-weight: 800; color: #FFFFFF; letter-spacing: 0.5px;">BTG Pactual</span>
-        <span style="color: rgba(255, 255, 255, 0.4); font-size: 18px;">|</span>
-        <span style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 300; color: #87BAFF;">Nexus</span>
+selic_num = parse_percent_value(kpi_data["selic"], default=14.50)
+cdi_num = parse_percent_value(kpi_data["cdi"], default=14.40)
+ipca_num = parse_percent_value(kpi_data["ipca"], default=4.50)
+
+selic_history = _build_spark_data(selic_num)
+cdi_history = _build_spark_data(cdi_num)
+ipca_history = _build_spark_data(ipca_num, noise=0.08)
+
+st.markdown('<div class="top-bar-container">', unsafe_allow_html=True)
+top_cols = st.columns([1.2, 1, 1, 1, 0.8])
+with top_cols[0]:
+    st.markdown("""
+    <div style="display:flex; align-items:center; gap:6px;">
+        <span style="font-family:'Outfit';font-size:16px;font-weight:800;color:#fff;">BTG Pactual</span>
+        <span style="color:rgba(255,255,255,0.4);font-size:16px;">|</span>
+        <span style="font-family:'Outfit';font-size:14px;font-weight:300;color:#87BAFF;">Nexus</span>
     </div>
-    <div style="display: flex; gap: 30px; align-items: center;">
-        <div style="text-align: right;">
-            <span style="font-size: 0.65rem; color: #87BAFF; display: block; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Selic Meta</span>
-            <span style="font-family: 'Outfit', sans-serif; font-size: 1.1rem; font-weight: 600; color: #FFFFFF;">{kpi_data["selic"]} <span style="font-size:0.75rem; color:#87BAFF; font-weight:normal;">0.00 p.p.</span></span>
+    """, unsafe_allow_html=True)
+for col_idx, (label, value, history, color) in enumerate([
+    ("Selic Meta", kpi_data["selic"], selic_history, "#FFFFFF"),
+    ("Taxa CDI", kpi_data["cdi"], cdi_history, "#FFFFFF"),
+    ("IPCA (12m)", kpi_data["ipca"], ipca_history, "#2DB071"),
+]):
+    with top_cols[col_idx + 1]:
+        st.markdown(f"""
+        <div style="text-align:right; border-left:1px solid rgba(135,186,255,0.15); padding-left:20px;">
+            <span style="font-size:0.6rem;color:#87BAFF;display:block;text-transform:uppercase;font-weight:700;">{label}</span>
+            <span style="font-family:'Outfit';font-size:1rem;font-weight:600;color:{color};">{value}</span>
         </div>
-        <div style="text-align: right; border-left: 1px solid rgba(135, 186, 255, 0.15); padding-left: 30px;">
-            <span style="font-size: 0.65rem; color: #87BAFF; display: block; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">Taxa CDI</span>
-            <span style="font-family: 'Outfit', sans-serif; font-size: 1.1rem; font-weight: 600; color: #FFFFFF;">{kpi_data["cdi"]} <span style="font-size:0.75rem; color:#87BAFF; font-weight:normal;">0.00 p.p.</span></span>
-        </div>
-        <div style="text-align: right; border-left: 1px solid rgba(135, 186, 255, 0.15); padding-left: 30px;">
-            <span style="font-size: 0.65rem; color: #87BAFF; display: block; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">IPCA (12m)</span>
-            <span style="font-family: 'Outfit', sans-serif; font-size: 1.1rem; font-weight: 600; color: #2DB071;">{kpi_data["ipca"]} <span style="font-size:0.75rem; color:#2DB071; font-weight:normal;">-0.02 p.p.</span></span>
-        </div>
-        <div style="text-align: right; border-left: 1px solid rgba(135, 186, 255, 0.15); padding-left: 30px; display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 0.72rem; color: #87BAFF; font-family: monospace;">23/05/2026</span>
-            <div style="background: #195AB4; color: #FFFFFF; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; font-family: 'Outfit'; font-size: 11px; font-weight: bold; box-shadow: 0 0 8px rgba(25,90,180,0.5);">AG</div>
-        </div>
+        """, unsafe_allow_html=True)
+        fig_spark = _sparkline_fig(history, color="#2DB071" if "IPCA" in label else "#87BAFF", height=24)
+        st.plotly_chart(fig_spark, use_container_width=True, config={'displayModeBar': False})
+with top_cols[4]:
+    st.markdown("""
+    <div style="text-align:right; border-left:1px solid rgba(135,186,255,0.15); padding-left:20px; display:flex; align-items:center; gap:8px; justify-content:flex-end;">
+        <span style="font-size:0.65rem;color:#87BAFF;font-family:monospace;">23/05/2026</span>
+        <div style="background:#195AB4;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-family:'Outfit';font-size:10px;font-weight:bold;box-shadow:0 0 6px rgba(25,90,180,0.5);">AG</div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ─── PAGINA 1: DASHBOARD CVM ──────────────────────────────────────────────────
 
@@ -738,37 +831,30 @@ if menu_option == "📈 Dashboard CVM":
             
             with col_chart1:
                 st.markdown("<div class='dashboard-panel'>", unsafe_allow_html=True)
-                st.markdown("<h4 style='margin-top:0px; font-size:1.05rem; color:#87BAFF;'>Distribuição de Ativos</h4>", unsafe_allow_html=True)
-                df_tipo = df_filtrado.groupby("Valor_Mobiliario")["Valor_Total_Registrado"].sum().reset_index()
-                df_tipo["Volume_Bi"] = df_tipo["Valor_Total_Registrado"] / 1e9
-                total_vol_bi = df_tipo["Volume_Bi"].sum()
-                
-                fig_tipo = px.pie(
-                    df_tipo,
+                st.markdown("<h4 style='margin-top:0px; font-size:1.05rem; color:#87BAFF;'>Distribuição por Setor (Treemap)</h4>", unsafe_allow_html=True)
+                df_treemap = df_filtrado.groupby(["Setor", "Valor_Mobiliario"])["Valor_Total_Registrado"].sum().reset_index()
+                df_treemap["Volume_Bi"] = df_treemap["Valor_Total_Registrado"] / 1e9
+                fig_treemap = px.treemap(
+                    df_treemap,
+                    path=["Setor", "Valor_Mobiliario"],
                     values="Volume_Bi",
-                    names="Valor_Mobiliario",
-                    color_discrete_sequence=["#195AB4", "#B1D2FF", "#10408D", "#307AE0", "#549CFF", "#87BAFF", "#D2E5FF"],
-                    hole=0.55,
-                    labels={"Volume_Bi": "Volume (Bi R$)", "Valor_Mobiliario": "Ativo"}
+                    color="Volume_Bi",
+                    color_continuous_scale=["#0B2859", "#195AB4", "#87BAFF", "#B1D2FF"],
+                    labels={"Volume_Bi": "Volume (Bi R$)"},
                 )
-                fig_tipo.update_traces(
-                    textposition='inside', 
-                    textinfo='percent',
-                    marker=dict(line=dict(color='#05132A', width=2))
+                fig_treemap.update_traces(
+                    textinfo="label+value",
+                    hovertemplate="<b>%{label}</b><br>Volume: R$ %{value:.1f}Bi<extra></extra>"
                 )
-                fig_tipo.update_layout(
+                fig_treemap.update_layout(
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
                     font_color="#FFFFFF",
-                    legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.0, font=dict(size=10)),
-                    margin=dict(t=5, b=5, l=5, r=100),
-                    height=200,
-                    annotations=[dict(
-                        text=f'<span style="font-family:Outfit;font-weight:bold;font-size:14px;color:#FFFFFF;">R$ {total_vol_bi:.1f}Bi</span><br><span style="font-size:8px;color:#87BAFF;font-weight:bold;text-transform:uppercase;">Volume Total</span>', 
-                        x=0.5, y=0.5, font_size=13, showarrow=False, align='center'
-                    )]
+                    margin=dict(t=5, b=5, l=5, r=5),
+                    height=220,
+                    coloraxis_showscale=False,
                 )
-                st.plotly_chart(fig_tipo, use_container_width=True)
+                st.plotly_chart(fig_treemap, use_container_width=True)
                 st.markdown("</div>", unsafe_allow_html=True)
                 
             with col_chart2:
@@ -800,6 +886,28 @@ if menu_option == "📈 Dashboard CVM":
                 st.plotly_chart(fig_lider, use_container_width=True)
                 st.markdown("</div>", unsafe_allow_html=True)
                 
+            # Sunburst — Hierarquia Setor → Ativo → Volume
+            with st.expander("🌐 Visão Hierárquica (Sunburst)", expanded=False):
+                df_sun = df_filtrado.groupby(["Setor", "Valor_Mobiliario"])["Valor_Total_Registrado"].sum().reset_index()
+                df_sun["Volume_Bi"] = df_sun["Valor_Total_Registrado"] / 1e9
+                fig_sun = px.sunburst(
+                    df_sun,
+                    path=["Setor", "Valor_Mobiliario"],
+                    values="Volume_Bi",
+                    color="Volume_Bi",
+                    color_continuous_scale=["#0B2859", "#195AB4", "#87BAFF", "#B1D2FF"],
+                )
+                fig_sun.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font_color="#FFFFFF",
+                    margin=dict(t=5, b=5, l=5, r=5),
+                    height=300,
+                    coloraxis_showscale=False,
+                )
+                fig_sun.update_traces(hovertemplate="<b>%{label}</b><br>Volume: R$ %{value:.1f}Bi<extra></extra>")
+                st.plotly_chart(fig_sun, use_container_width=True)
+                
             # 📋 Tabela de Emissões CVM
             st.markdown("<div class='dashboard-panel'>", unsafe_allow_html=True)
             st.markdown("<h3 style='margin-top:0px; font-size:1.25rem;'>📋 Emissões Registradas</h3>", unsafe_allow_html=True)
@@ -821,7 +929,19 @@ if menu_option == "📈 Dashboard CVM":
                 lambda row: gerar_insight_ia(row, kpi_data["selic"], kpi_data["cdi"]), 
                 axis=1
             )
-            
+
+            # Paginação: mostrar top 100 por padrão
+            max_table_rows = 100
+            total_rows = len(df_insight)
+            show_all = st.checkbox(f"Mostrar todas ({total_rows} ofertas)", value=False, key="show_all_table")
+            df_table = df_insight if show_all else df_insight.head(max_table_rows)
+
+            # Badge High Yield: CDI + 4%
+            cdi_for_hy = parse_percent_value(kpi_data["cdi"], default=14.40)
+            df_table["HY"] = df_table["Taxa_Bruta_Estimada"].apply(
+                lambda x: "⚡ High Yield" if x > cdi_for_hy + 4 else ""
+            )
+
             display_cols = {
                 "NexusScore_Stars": "Nexus",
                 "Nome_Emissor": "Emissor",
@@ -831,21 +951,28 @@ if menu_option == "📈 Dashboard CVM":
                 "Rating": "Rating",
                 "Valor_Total_Registrado": "Volume (R$)",
                 "Status_Requerimento": "Status",
+                "HY": "High Yield",
             }
-            
-            df_display = df_insight[list(display_cols.keys())].copy()
+
+            df_display = df_table[list(display_cols.keys())].copy()
             df_display = df_display.rename(columns=display_cols)
-            
+            max_volume = df_display["Volume (R$)"].max() if not df_display.empty else 1
+
             event = st.dataframe(
                 df_display,
                 column_config={
-                    "Volume (R$)": st.column_config.NumberColumn(
+                    "Volume (R$)": st.column_config.ProgressColumn(
                         format="R$ %.2f",
+                        min_value=0,
+                        max_value=max_volume,
                         help="Volume financeiro total da oferta"
                     ),
-                    "Taxa Liquida": st.column_config.TextColumn(
-                        help="Insight gerado automaticamente pela inteligência da plataforma"
-                    )
+                    "Rating": st.column_config.TextColumn(
+                        help="Rating de crédito com indicador de cor"
+                    ),
+                    "High Yield": st.column_config.TextColumn(
+                        help="Alerta de rentabilidade acima de CDI + 4%"
+                    ),
                 },
                 hide_index=True,
                 use_container_width=True,
@@ -1024,6 +1151,12 @@ if menu_option == "📈 Dashboard CVM":
                     nexus_stars = selected_offer.get("NexusScore_Stars", "")
                     nexus_label = selected_offer.get("NexusScore_Label", "")
 
+                    cdi_num = parse_percent_value(kpi_data.get("cdi", "14.65% a.a."), default=14.40)
+                    taxa_liquida_raw = float(selected_offer.get("Taxa_Liquida", 0.0))
+                    taxa_bruta_raw = float(selected_offer.get("Taxa_Bruta_Estimada", 0.0))
+                    aliquota_val = float(selected_offer.get("Aliquota_IR", 0.0)) * 100
+                    is_high_yield = taxa_bruta_raw > cdi_num + 4
+
                     isento_txt = "Sim [ISENTO IR]" if incentivado == "Sim" else "Não"
                     esg_txt = "Sim [Sustentável]" if sustentavel == "Sim" else "Não"
 
@@ -1112,21 +1245,91 @@ if menu_option == "📈 Dashboard CVM":
                     )
                     st.plotly_chart(fig_flow, use_container_width=True, config={'displayModeBar': False})
 
-                    # NexusScore — Score Composto (0-100)
+                    # NexusScore — Gauge + Dimensões
                     badge_color = {"Excelente": "#2DB071", "Bom": "#195AB4", "Regular": "#B8860B", "Atencao": "#E83E48"}.get(nexus_label, "#195AB4")
                     badge_text = {"Excelente": "EXCELENTE", "Bom": "FAVORAVEL", "Regular": "NEUTRO", "Atencao": "ATENCAO"}.get(nexus_label, "NEUTRO")
-                    st.markdown(f"""
-                    <div style="background: rgba(25, 90, 180, 0.08); border: 1px solid rgba(135,186,255,0.2); border-radius: 4px; padding: 10px; margin-top: 10px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                            <span style="font-size:0.72rem; color:#87BAFF; font-weight:bold;">NexusScore — Rating Composto</span>
-                            <span style="background:{badge_color}; color:#FFFFFF; font-size:8px; font-weight:bold; padding:2px 6px; border-radius:3px;">{badge_text}</span>
+
+                    # Recompute for dimensões breakdown
+                    nexus_detail = calcular_nexus_score(
+                        taxa_liquida=taxa_liquida_raw, cdi_atual=cdi_num,
+                        rating=selected_offer.get("Rating", "BBB"),
+                        setor=selected_offer.get("Setor", "Corporativo"),
+                        isento=selected_offer.get("Isento_IR", False),
+                        aliquota_ir=float(selected_offer.get("Aliquota_IR", 0.0)),
+                        volume=selected_offer.get("Valor_Total_Registrado", 0),
+                        titulo_sustentavel=str(selected_offer.get("Titulo_classificado_como_sustentavel", "")),
+                        intent="padrao",
+                    )
+                    dims = nexus_detail.get("dimensoes", {})
+
+                    col_gauge, col_nexus_info = st.columns([1, 1.3])
+                    with col_gauge:
+                        fig_gauge = go.Figure(go.Indicator(
+                            mode="gauge+number",
+                            value=float(nexus_score) if nexus_score != "N/D" else 0,
+                            number={"font": {"color": "#FFFFFF", "size": 26}, "suffix": "/100"},
+                            gauge={
+                                "axis": {"range": [0, 100], "tickcolor": "#87BAFF", "tickfont": {"color": "#87BAFF", "size": 8}},
+                                "bar": {"color": badge_color, "thickness": 0.25},
+                                "bgcolor": "rgba(0,0,0,0)",
+                                "borderwidth": 0,
+                                "steps": [
+                                    {"range": [0, 40], "color": "rgba(232, 62, 72, 0.15)"},
+                                    {"range": [40, 60], "color": "rgba(184, 134, 11, 0.1)"},
+                                    {"range": [60, 80], "color": "rgba(25, 90, 180, 0.15)"},
+                                    {"range": [80, 100], "color": "rgba(45, 176, 113, 0.15)"},
+                                ],
+                                "threshold": {"line": {"color": "#FFFFFF", "width": 1.5}, "thickness": 0.5, "value": float(nexus_score) if nexus_score != "N/D" else 0},
+                            }
+                        ))
+                        fig_gauge.update_layout(
+                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                            font_color="#FFFFFF", margin=dict(t=0, b=0, l=0, r=0), height=130,
+                        )
+                        st.plotly_chart(fig_gauge, use_container_width=True, config={'displayModeBar': False})
+
+                    with col_nexus_info:
+                        pulse_class = "high-yield-pulse" if is_high_yield else ""
+                        st.markdown(f"""
+                        <div class="{pulse_class}" style="background: rgba(25, 90, 180, 0.08); border: 1px solid rgba(135,186,255,0.2); border-radius: 4px; padding: 8px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                <span style="font-size:0.65rem; color:#87BAFF; font-weight:bold;">NexusScore — Rating Composto</span>
+                                <span style="display:flex; align-items:center; gap:4px;">
+                                    {'<span class="high-yield-badge">⚡ High Yield</span>' if is_high_yield else ''}
+                                    <span style="background:{badge_color}; color:#FFFFFF; font-size:7px; font-weight:bold; padding:2px 5px; border-radius:3px;">{badge_text}</span>
+                                </span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:0.70rem;">
+                                <span style="color:#87BAFF;">Score: <strong style="color:#FFFFFF;">{nexus_score}/100</strong> {nexus_stars}</span>
+                                <span style="color:#87BAFF;">Rating: <strong style="color:#FFFFFF;">{rating}</strong> ({risco_rating})</span>
+                            </div>
                         </div>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.75rem;">
-                            <span style="color:#87BAFF;">Score: <strong style="color:#FFFFFF;">{nexus_score}/100</strong> {nexus_stars}</span>
-                            <span style="color:#87BAFF;">Rating: <strong style="color:#FFFFFF;">{rating}</strong> ({risco_rating})</span>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
+                        """, unsafe_allow_html=True)
+
+                    # Radar Chart — 6 Dimensões
+                    st.markdown("<h5 style='margin-top:4px; margin-bottom:2px; font-size:0.68rem; color:#87BAFF;'>Dimensões do Score (0–10)</h5>", unsafe_allow_html=True)
+                    dim_labels = {"rentabilidade": "Rentabilidade", "seguranca": "Segurança", "fiscal": "Fiscal", "porte": "Porte", "liquidez": "Liquidez", "esg": "ESG"}
+                    dim_values = [dims.get(k, 0) for k in dim_labels.keys()]
+                    dim_names = list(dim_labels.values())
+                    fig_radar = go.Figure(go.Scatterpolar(
+                        r=dim_values + [dim_values[0]],
+                        theta=dim_names + [dim_names[0]],
+                        fill="toself", fillcolor="rgba(135, 186, 255, 0.12)",
+                        line=dict(color="#87BAFF", width=1.2),
+                    ))
+                    fig_radar.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font_color="#FFFFFF", margin=dict(t=5, b=5, l=5, r=5), height=160,
+                        polar=dict(
+                            bgcolor="rgba(0,0,0,0)",
+                            radialaxis=dict(range=[0, 10], visible=True,
+                                            gridcolor="rgba(135,186,255,0.15)",
+                                            tickfont=dict(size=7)),
+                            angularaxis=dict(gridcolor="rgba(135,186,255,0.15)", tickfont=dict(size=7, color="#87BAFF")),
+                        ),
+                        showlegend=False,
+                    )
+                    st.plotly_chart(fig_radar, use_container_width=True, config={'displayModeBar': False})
 
                     st.markdown(f"""
                     <div style="background: rgba(25, 90, 180, 0.10); border: 1px solid rgba(135,186,255,0.25); border-radius: 4px; padding: 10px; margin-top: 10px;">
@@ -1138,6 +1341,44 @@ if menu_option == "📈 Dashboard CVM":
                         <div class="nexus-disclaimer">{DISCLAIMER_IA}</div>
                     </div>
                     """, unsafe_allow_html=True)
+
+                    # Waterfall — Equivalência Fiscal: Bruta → IR → Líquida
+                    isento_offer = selected_offer.get("Isento_IR", False)
+                    if isento_offer:
+                        waterfall_data = [
+                            dict(label="Taxa Bruta", value=taxa_bruta_raw, measure="relative"),
+                            dict(label="Isenção IR (0%)", value=0, measure="relative"),
+                            dict(label="Taxa Líquida", value=taxa_bruta_raw, measure="total"),
+                        ]
+                    else:
+                        ir_amount = taxa_bruta_raw - taxa_liquida_raw
+                        waterfall_data = [
+                            dict(label="Taxa Bruta", value=taxa_bruta_raw, measure="relative"),
+                            dict(label=f"IR (-{aliquota_val:.0f}%)", value=-ir_amount, measure="relative"),
+                            dict(label="Taxa Líquida", value=taxa_liquida_raw, measure="total"),
+                        ]
+                    fig_waterfall = go.Figure(go.Waterfall(
+                        name="Taxa",
+                        orientation="v",
+                        measure=[d["measure"] for d in waterfall_data],
+                        x=[d["label"] for d in waterfall_data],
+                        y=[d["value"] for d in waterfall_data],
+                        text=[f"{d['value']:.2f}%" for d in waterfall_data],
+                        textposition="outside",
+                        connector={"line": {"color": "rgba(135,186,255,0.3)", "width": 1}},
+                        decreasing={"marker": {"color": "#E83E48"}},
+                        increasing={"marker": {"color": "#2DB071"}},
+                        totals={"marker": {"color": "#195AB4"}},
+                    ))
+                    fig_waterfall.update_layout(
+                        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                        font_color="#FFFFFF", margin=dict(t=10, b=5, l=5, r=5), height=130,
+                        xaxis=dict(showgrid=False, tickfont=dict(size=8)),
+                        yaxis=dict(showgrid=True, gridcolor="rgba(135,186,255,0.1)", tickfont=dict(size=8),
+                                   title="Taxa (% a.a.)", title_font=dict(size=8, color="#87BAFF")),
+                        showlegend=False,
+                    )
+                    st.plotly_chart(fig_waterfall, use_container_width=True, config={'displayModeBar': False})
 
                     if st.button("Analisar com Nexus", key="btn_detail_analyze", use_container_width=True):
                         st.session_state.pending_ai_query = (

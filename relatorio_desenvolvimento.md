@@ -140,6 +140,14 @@ A plataforma Nexus foi validada com sucesso e atende a todos os requisitos de in
    - Inclui tratamento de outliers (penalidade de -20 pts para taxas acima de CDI + 4%) e normalização de rating (AAA→BB) com bônus FGC.
    - Exibido na tabela como estrelas (⭐) e no painel de detalhes como score numérico com badge contextual.
    - Nova ferramenta `calcular_ranking_ofertas` exposta ao agente LangGraph para responder perguntas como "qual a melhor oferta?".
+   - `calcular_nexus_score()` retorna `dimensoes` dict com scores individuais (0-10) para renderização do radar chart.
+
+8. **UI Redesign Completo (26/05/2026):**
+   - **Passo 1 — Treemap + Sunburst**: Gráfico de pizza substituído por Treemap (Setor → Tipo) e Sunburst adicionado como expansor.
+   - **Passo 2 — Gauge + Radar + Waterfall**: Painel de detalhes agora exibe gauge do NexusScore, radar das 6 dimensões e waterfall de equivalência fiscal.
+   - **Passo 3 — Sparklines em KPIs**: Top Bar reconstruída com `st.columns`; cada KPI (Selic, CDI, IPCA) inclui mini sparkline Plotly.
+   - **Passo 4 — Tabela com Paginação + Badges**: Top 100 ofertas por padrão com toggle "mostrar todas"; coluna Volume usa `ProgressColumn`; coluna "High Yield" com badge ⚡.
+   - **Passo 5 — CSS Tokens + High Yield Pulse**: Variáveis CSS customizadas (`--accent-blue`, `--success`, `--danger`); animação `hyPulse` em cards de alta rentabilidade; classe `.high-yield-badge` para tags inline.
 
 ---
 

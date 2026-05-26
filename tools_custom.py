@@ -235,7 +235,7 @@ def calcular_nexus_score(taxa_liquida: float, cdi_atual: float, rating: str, set
     else:
         label = "Atencao"
     stars = min(max(round(final / 20), 1), 5)
-    return {"score": round(final, 1), "label": label, "stars": stars}
+    return {"score": round(final, 1), "label": label, "stars": stars, "dimensoes": {k: round(v, 1) for k, v in scores.items()}}
 
 
 # ─── Definição das Tools ──────────────────────────────────────────────────────

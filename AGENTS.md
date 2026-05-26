@@ -25,6 +25,35 @@
 - **`tools_custom.py`** → 11 `@tool` functions: CVM queries, XP portfolio, Meelion scraping, BCB SGS, ChromaDB semantic search, Yahoo Finance, tax equivalence, arbitrage comparison, report export, offer ranking
 - **`chroma_indexer.py`** → loads CSV → generates embeddings (`all-MiniLM-L6-v2` via onnxruntime, CPU, offline) → persists to ChromaDB
 - **NexusScore** — composite ranking (0-100) computed in `prepare_nexus_dataset()` using `calcular_nexus_score()` from `tools_custom.py`. 6 weighted dimensions: Rentabilidade (30%), Segurança (35%), Fiscal (15%), Porte (10%), Liquidez (5%), ESG (5%). Weights dynamic by intent. Displayed as stars in table and breakdown in detail panel.
+- **`calcular_nexus_score()`** (`tools_custom.py:216-238`) now returns `dimensoes` dict with individual dimension scores (0-10 scale) for radar chart rendering.
+
+## UI Redesign (Passos 1-5 completed 26/05/2026)
+### Passo 1 — Treemap + Sunburst
+- Pie chart replaced with **Treemap** (`px.treemap`, path: Setor → Tipo) in col_chart1
+- **Sunburst** added as collapsible expander below charts (Setor → Ativo → Volume)
+- Color scale: `["#0B2859", "#195AB4", "#87BAFF", "#B1D2FF"]`
+
+### Passo 2 — Gauge + Radar + Waterfall (Detail Panel)
+- **Gauge** (`go.Indicator`, mode gauge+number) shows NexusScore 0-100 with color zones
+- **Radar** (`go.Scatterpolar`, 6 axes fixed 0-10) shows dimension breakdown using `calcular_nexus_score().dimensoes`
+- **Waterfall** (`go.Waterfall`) shows tax equivalence: Taxa Bruta → IR deduction → Taxa Líquida
+
+### Passo 3 — Sparklines on KPIs
+- Top Bar rebuilt with `st.columns` layout; each KPI (Selic, CDI, IPCA) has a **mini sparkline** (`go.Scatter` with fill, height=24px)
+- Synthetic 6-point history generated per KPI using `_sparkline_fig()` + `_build_spark_data()`
+
+### Passo 4 — Table Enhancements
+- **Pagination**: Top 100 rows by default, checkbox to show all
+- **ProgressColumn**: Volume column uses `st.column_config.ProgressColumn` (normalized by max volume)
+- **High Yield badge**: "⚡ High Yield" text column shown when Taxa_Bruta > CDI + 4%
+- Detail panel `selected_offer` reference remains correct with paginated display
+
+### Passo 5 — CSS Tokens + High Yield Pulse
+- CSS custom properties added (`:root`): `--accent-blue`, `--success`, `--danger`, `--font-heading`, etc.
+- `@keyframes hyPulse` animation: pulsing border glow on High Yield cards
+- `.high-yield-badge` class: styled inline badge tag (red, uppercase)
+- `.high-yield-pulse` class applied dynamically to Nexus info card when `is_high_yield` is True
+- `div[role="progressbar"]` override for ProgressColumn color
 
 ## Key Domain Rules (hardcoded in agent prompt & tools)
 - CDI anual = Selic Meta − 0.10 p.p. (never display daily CDI as annual)
