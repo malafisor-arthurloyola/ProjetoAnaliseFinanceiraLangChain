@@ -1,0 +1,108 @@
+Cronograma Técnico
+
+Auditoria do estado atual
+Vou mapear as colunas reais do CSV, fluxo do app.py, filtros existentes, tabela, chat e tools para evitar quebrar a base atual.
+
+Camada financeira
+Primeiro implemento funções utilitárias para CDI anual correto, normalização de setores, IR regressivo, taxa líquida e rating heurístico.
+
+Tabela e abas
+Depois separo ofertas ativas vs. encerradas, criando a aba Histórico, e adiciono colunas Taxa Líquida, Rating, Setor, Veredito IA e ações.
+
+Botões de intenção
+Implemento atalhos: Segurança, Renda Mensal, Super Rentabilidade e Agro, conectados aos filtros reais do dataframe.
+
+Insight IA
+Crio o componente visual de veredito com tooltip e adiciono o disclaimer obrigatório nas análises do Nexus.
+
+Skeleton/progresso
+Implemento estados de carregamento e mensagens de progresso nos fluxos de IA/PDF/prospecto onde fizer sentido no código atual.
+
+Validação
+Rodo checagens de sintaxe, testo o app Streamlit e faço uma revisão visual/funcional. Conforme eu avançar, vou anotando as mudanças no cofre.
+
+Dúvida bloqueante, só uma: você quer que eu implemente agora direto no app atual, ou quer que eu faça primeiro uma branch/commit antes dessa refatoração grande? Minha recomendação: implementar direto com checkpoints no Obsidian e, ao final, deixar tudo pronto para commit.
+
+
+Implementação Definitiva Nexus - Especificação Mestre.md
+Document · MD
+Open in
+
+MOC - Projeto BTG Pactual.md
+Document · MD
+Open in
+
+Especificações Mestre_ Nexus - Inteligência Financeira & UX Pro Max.md
+Document · MD
+Open in
+
+Edited 3 files
++47
+-3
+Undo
+Review
+Implementação Definitiva Nexus - Especificação Mestre.md
+MOC - Projeto BTG Pactual.md
+MOC - Projeto BTG Pactual.md
+
+
+
+
+8:33 PM
+Acho interessante a criação de um branch para essa feature, para eu testar ela antes.
+8:34 PM
+
+
+Worked for 28s
+Branch criada e ativa: feature/nexus-ux-pro-max.
+
+Estado atual nela:
+
+agent_engine.py modificado
+app.py modificado
+ExemploDeCódigoLangChain/requirements.txt modificado
+especificação mestre em Estudos/...UX Pro Max.md ainda não rastreada pelo Git
+Agora dá para implementar a feature nessa branch e você testa antes de levar para a main.
+
+
+
+
+
+8:35 PM
+pode fazer essa mudanças, é vc que vai fazer
+8:35 PM
+
+Perfeito, vou tocar a implementação nessa branch. Vou começar pela auditoria rápida do app.py e das colunas reais do dataset, porque a parte financeira depende de saber exatamente quais campos existem e como os status/taxas/vencimentos estão escritos.
+
+
+Ran 4 commands
+Já encontrei: o app tem uma função de insight antiga, a tabela atual não separa histórico e o dataset CVM não traz taxa/rating explícitos em colunas diretas. Vou implementar uma camada heurística conservadora baseada em tipo de ativo, incentivo, status, volume e prazo quando disponível, e deixar isso transparente no tooltip/disclaimer.
+
+
+Ran 4 commands
+Vou aplicar agora a primeira leva de código: helpers financeiros, CDI anual correto, filtros de intenção e preparação das colunas novas. Em seguida refatoro a tabela em abas e conecto o detalhe/chat ao dataframe enriquecido.
+
+
+Edited 1 file, editing 1 file, ran 3 commands
+Edited 1 file, editing 1 file, ran 3 commands
+Camada financeira entrou: o dataframe agora nasce enriquecido com setor, IR, taxa líquida estimada, rating e veredito. Vou registrar esse checkpoint no Obsidian antes de mexer na UI da tabela.
+
+Ran Add-Content -Path 'C:\Users\Inteli\Documents\BTG informações\Implementação Definitiva Nexus - Especificação Mestre.md' -Encoding utf8 -Value @' ## Checkpoint - Camada financeira Implementado em `app.py`: - Correção do CDI para base anual via `Selic Meta - 0,10`. - Enriquecimento do dataset CVM com `Setor`, `Isento_IR`, `Aliquota_IR`, `Taxa_Bruta_Estimada`, `Taxa_Liquida`, `Rating`, `Risco_Rating`, `Veredito_IA` e `Historico`. - Normalização de setores para evitar `N/D`, usando categorias como Soberano, Bancario, Agro, Imobiliario, Infra, Corporativo, Fundos e Credito Estruturado/Pulverizado. - Taxa liquida calculada pela tabela regressiva de IR quando o ativo não é isento. - Rating e veredito IA implementados como heurística transparente, pois o CSV CVM traz avaliador/agência, mas não traz nota de rating padronizada para todas as ofertas. '@
+Agora vou refatorar o bloco do dashboard: inserir botões de atalho, aplicar o filtro de intenção e dividir a tabela em Ativas e Histórico. Essa é a parte mais sensível porque mexe no fluxo de seleção usado pelo painel lateral.
+
+
+Edited 1 file, editing 1 file, ran 7 commands
+Edited 1 file, editing 1 file, ran 7 commands
+
+Edited 2 files
++562
+-141
+Undo
+Review
+app.py
+app.py
+continua
+8:45 PM
+
+
+Eu ia pedir para o outro chat dar continuidade à essa conversa

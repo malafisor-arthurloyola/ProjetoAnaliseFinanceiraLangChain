@@ -134,6 +134,20 @@ A plataforma Nexus foi validada com sucesso e atende a todos os requisitos de in
    - Ferramenta que cruza as ofertas vigentes em tempo real da carteira recomendada da XP com as taxas do mercado secundário do Meelion e identifica a melhor oportunidade de investimento com base na relação Risco/Retorno.
 6. **Exportação de Relatórios Sob Demanda:**
    - A ferramenta `exportar_relatorio` permite que o agente salve análises detalhadas solicitadas via chat em arquivos físicos locais (`.md` ou `.txt`) na raiz do projeto, viabilizando o uso prático de relatórios em reuniões executivas.
+7. **NexusScore — Sistema de Ranqueamento de Ofertas:**
+   - Implementado um score composto (0-100) que pondera 6 dimensões: Rentabilidade Líquida (30%), Segurança/Rating (35%), Eficiência Fiscal (15%), Porte do Emissor (10%), Liquidez Potencial (5%) e ESG (5%).
+   - Os pesos são dinâmicos conforme o perfil do investidor (Máxima Segurança, Super Rentabilidade, Renda Mensal, Foco no Agro), ajustando-se automaticamente ao intent selecionado no dashboard.
+   - Inclui tratamento de outliers (penalidade de -20 pts para taxas acima de CDI + 4%) e normalização de rating (AAA→BB) com bônus FGC.
+   - Exibido na tabela como estrelas (⭐) e no painel de detalhes como score numérico com badge contextual.
+   - Nova ferramenta `calcular_ranking_ofertas` exposta ao agente LangGraph para responder perguntas como "qual a melhor oferta?".
+   - `calcular_nexus_score()` retorna `dimensoes` dict com scores individuais (0-10) para renderização do radar chart.
+
+8. **UI Redesign Completo (26/05/2026):**
+   - **Passo 1 — Treemap + Sunburst**: Gráfico de pizza substituído por Treemap (Setor → Tipo) e Sunburst adicionado como expansor.
+   - **Passo 2 — Gauge + Radar + Waterfall**: Painel de detalhes agora exibe gauge do NexusScore, radar das 6 dimensões e waterfall de equivalência fiscal.
+   - **Passo 3 — Sparklines em KPIs**: Top Bar reconstruída com `st.columns`; cada KPI (Selic, CDI, IPCA) inclui mini sparkline Plotly.
+   - **Passo 4 — Tabela com Paginação + Badges**: Top 100 ofertas por padrão com toggle "mostrar todas"; coluna Volume usa `ProgressColumn`; coluna "High Yield" com badge ⚡.
+   - **Passo 5 — CSS Tokens + High Yield Pulse**: Variáveis CSS customizadas (`--accent-blue`, `--success`, `--danger`); animação `hyPulse` em cards de alta rentabilidade; classe `.high-yield-badge` para tags inline.
 
 ---
 
