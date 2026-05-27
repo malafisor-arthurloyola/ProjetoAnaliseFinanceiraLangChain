@@ -21,7 +21,7 @@ DATA_DIR = PROJECT_ROOT / "data"
 CHROMA_DIR = PROJECT_ROOT / "chroma_db"
 
 # Carrega variáveis do arquivo .env (chave Groq, etc.)
-load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / ".env", override=True)
 
 # ─── Carrega Bases de Dados locais (Cachê em Memória) ──────────────────────────
 
