@@ -41,6 +41,18 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 load_dotenv(PROJECT_ROOT / ".env", override=True)
 
 
+def extrair_texto(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        partes = []
+        for bloco in content:
+            if isinstance(bloco, dict) and bloco.get("type") == "text":
+                partes.append(bloco.get("text", ""))
+        return "".join(partes)
+    return str(content)
+
+
 SYSTEM_PROMPT = """Voce e o Nexus, um analista financeiro senior especializado em mercado de capitais brasileiro e investimentos de renda fixa.
 
 Sua base de conhecimento segue o Guia de Referencia Tecnica de Inteligencia Financeira Nexus como verdade unica para todos os calculos.
@@ -217,6 +229,9 @@ def invoke_agent_with_key_fallback(messages):
         try:
             agent = build_agent(api_key=api_key, provider=provider, model=model)
             response = agent.invoke({"messages": messages})
+            ultima_msg = response["messages"][-1]
+            if hasattr(ultima_msg, "content"):
+                ultima_msg.content = extrair_texto(ultima_msg.content)
             response["_provider_key_name"] = key_name
             response["_provider_key_index"] = index
             response["_provider_name"] = provider
@@ -245,9 +260,6 @@ def invoke_agent_with_key_fallback(messages):
                     f"Detalhe: `{error}`\n\n"
                     "Tente novamente ou configure outro provedor no `.env`."
                 )
-    raise RuntimeError(mensagem_erro)
-
-
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
