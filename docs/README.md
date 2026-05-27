@@ -84,3 +84,54 @@ Para rodar a plataforma em sua máquina e acessar a interface interativa:
 4. O painel será aberto automaticamente no seu navegador em `http://localhost:8501/`.
 
 > 💡 As chaves de API vão no arquivo `.env` (veja `.env.example`).
+
+---
+
+## 🧪 Testando o Agente
+
+Abra o dashboard em `http://localhost:8501/` e envie no chat:
+
+### Nível 1 — Básico (dados gerais)
+```
+Quais são as taxas macroeconômicas atuais? (Selic, CDI, IPCA)
+```
+```
+Me dê um resumo do mercado de ofertas da CVM
+```
+
+### Nível 2 — Ofertas reais
+```
+Quais são as debêntures mais recentes registradas na CVM?
+```
+```
+Me mostre ofertas do setor imobiliário com maiores volumes
+```
+
+### Nível 3 — NexusScore + Ranking
+```
+Qual a melhor oferta disponível para perfil de máxima segurança?
+```
+```
+Compare as ofertas do Banco ABC e do Banco Bradesco
+```
+
+### Nível 4 — Análise Avançada
+```
+Quanto renderia um CRI de 120% do CDI em 2 anos, comparado a um CDB de 130% do CDI?
+```
+```
+Faça uma arbitragem entre as ofertas da XP e do Meelion
+```
+```
+Exporte um relatório sobre as ofertas do setor de infraestrutura
+```
+
+### Terminal (sem interface gráfica)
+```powershell
+python src/agent_engine.py
+```
+
+### Indexar dados da CVM (uma vez)
+```powershell
+python src/chroma_indexer.py
+```
