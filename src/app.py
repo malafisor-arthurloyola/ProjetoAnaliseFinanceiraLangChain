@@ -1121,7 +1121,27 @@ if menu_option == "📈 Dashboard CVM":
                                         "tools": tools_utilizadas
                                     })
                                 except Exception as e:
-                                    st.error(f"Erro no assistente: {e}")
+                                    erro_str = str(e)
+                                    if any(m in erro_str.lower() for m in ["rate limit", "429", "quota", "limite"]):
+                                        resposta_final = (
+                                            "⏳ **Limite de tokens da IA excedido**\n\n"
+                                            "O assistente Nexus atingiu o limite diário de requisições. "
+                                            "Aguarde alguns minutos e tente novamente.\n\n"
+                                            "💡 *Dica: você pode configurar uma chave de API com cota maior no arquivo `.env`.*"
+                                        )
+                                    else:
+                                        resposta_final = (
+                                            "❌ **Erro no assistente**\n\n"
+                                            f"Não foi possível processar sua pergunta no momento.\n"
+                                            f"Detalhe: `{erro_str[:200]}`"
+                                        )
+                                    with st.chat_message("assistant"):
+                                        st.markdown(resposta_final)
+                                    st.session_state.messages.append({
+                                        "role": "assistant",
+                                        "content": resposta_final,
+                                        "tools": []
+                                    })
                     st.rerun()
 
             # 🔍 ABA DETALHES DO ATIVO (Master-Detail Drawer)

@@ -38,7 +38,19 @@ from tools_custom import (
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / ".env", override=True)
+
+
+def extrair_texto(content) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        partes = []
+        for bloco in content:
+            if isinstance(bloco, dict) and bloco.get("type") == "text":
+                partes.append(bloco.get("text", ""))
+        return "".join(partes)
+    return str(content)
 
 
 SYSTEM_PROMPT = """Voce e o Nexus, um analista financeiro senior especializado em mercado de capitais brasileiro e investimentos de renda fixa.
@@ -126,6 +138,15 @@ def _looks_like_key_limit_error(error):
         "invalid_api_key",
         "authentication",
         "permission",
+        "import error",
+        "no module named",
+        "not installed",
+        "pacote nao instalado",
+        "invalid_argument",
+        "api key invalid",
+        "api_key_invalid",
+        "api key expired",
+        "key expired",
     )
     return any(marker in message for marker in recoverable_markers)
 
@@ -208,6 +229,9 @@ def invoke_agent_with_key_fallback(messages):
         try:
             agent = build_agent(api_key=api_key, provider=provider, model=model)
             response = agent.invoke({"messages": messages})
+            ultima_msg = response["messages"][-1]
+            if hasattr(ultima_msg, "content"):
+                ultima_msg.content = extrair_texto(ultima_msg.content)
             response["_provider_key_name"] = key_name
             response["_provider_key_index"] = index
             response["_provider_name"] = provider
@@ -215,12 +239,27 @@ def invoke_agent_with_key_fallback(messages):
             return response
         except Exception as error:
             errors.append(f"{key_name}: {error}")
-            if index == len(providers) or not _looks_like_key_limit_error(error):
-                raise
-
-    raise RuntimeError("Todos os provedores de LLM falharam:\n" + "\n".join(errors))
-
-
+            if index == len(providers):
+                erros_str = "\n".join(f"  • {e}" for e in errors)
+                raise RuntimeError(
+                    "⏳ **O assistente Nexus está temporariamente indisponível.**\n\n"
+                    "Todos os provedores de IA falharam. Possíveis causas:\n"
+                    "  • Limite de tokens diário excedido (Groq)\n"
+                    "  • Chave de API inválida ou expirada\n"
+                    "  • Serviço temporariamente fora do ar\n\n"
+                    "**Sugestões:**\n"
+                    "  • Aguarde alguns minutos e tente novamente\n"
+                    "  • Renove as chaves de API no arquivo `.env`\n"
+                    "  • Contate o administrador do sistema\n\n"
+                    f"Detalhes técnicos:\n{erros_str}"
+                )
+            if not _looks_like_key_limit_error(error):
+                raise RuntimeError(
+                    "❌ **Erro no provedor de IA:**\n\n"
+                    f"O provedor `{key_name}` falhou com um erro não recuperável.\n\n"
+                    f"Detalhe: `{error}`\n\n"
+                    "Tente novamente ou configure outro provedor no `.env`."
+                )
 def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")

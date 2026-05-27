@@ -184,3 +184,30 @@ Este projeto é fruto de uma co-criação activa, caracterizada por importantes 
 Este relatório reflete a evolução contínua da aplicação alinhada ao rigor metodológico e controle de qualidade do usuário.olvedor parceiro restabelecer o trabalho em minutos.
 
 Essas contribuições representam a aplicação prática do **senso crítico e governança** de TI, assegurando que o produto final seja seguro, transparente e de altíssimo nível.
+
+---
+
+## 7. Refatoração de Diretório e Robustez (27/05/2026)
+
+### 7.1. Reorganização da Estrutura de Pastas
+Realizada migração para estrutura modular padronizada, isolando o código-fonte em `src/` e a documentação em `docs/`:
+
+| Antes | Depois |
+|-------|--------|
+| `app.py`, `agent_engine.py`, `tools_custom.py`, `chroma_indexer.py` (raiz) | `src/app.py`, `src/agent_engine.py`, `src/tools_custom.py`, `src/chroma_indexer.py` |
+| `README.md`, `AGENTS.md`, `relatorio_*.md` (raiz) | `docs/README.md`, `docs/AGENTS.md`, `docs/relatorio_*.md` |
+| `Estudos/` (raiz) | `docs/Estudos/` |
+| `GuiaVisual/` (raiz) | `design/GuiaVisual/` |
+| `ExemploDeCódigoLangChain/` (raiz) | Removido (código legado) |
+| `lixo/` (raiz) | Removido |
+| — | `.env.example` (template seguro) |
+| — | `requirements.txt` (dependências centralizadas) |
+
+### 7.2. Fallback Automático Groq → Gemini
+Implementado sistema de fallback transparente no `agent_engine.py`:
+- **Provedor Primário**: Groq (`llama-3.3-70b-versatile`) — alta velocidade de inferência.
+- **Fallback**: Google Gemini (`gemini-2.0-flash`) — ativado automaticamente se a chave Groq falhar (rate limit, cota excedida, erro de rede).
+- **Status Visível na UI**: O dashboard exibe qual provedor está ativo via `get_provider_status()`.
+
+### 7.3. Tratamento de Erros Amigável
+Mensagens de erro no chat foram substituídas por respostas compreensíveis para o usuário final, ocultando tracebacks técnicos e orientando o próximo passo.

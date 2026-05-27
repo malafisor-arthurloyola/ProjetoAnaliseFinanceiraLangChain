@@ -1,6 +1,5 @@
 # Virtual Environment
 venv/
-ExemploDeCódigoLangChain/venv/
 .venv/
 env/
 
@@ -15,7 +14,6 @@ env/
 
 # Large Data Files (to be generated or downloaded locally)
 data/
-ExemploDeCódigoLangChain/data/
 chroma_db/
 
 # OS/Editor Files
