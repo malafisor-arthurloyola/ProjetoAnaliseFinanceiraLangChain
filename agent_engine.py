@@ -126,6 +126,15 @@ def _looks_like_key_limit_error(error):
         "invalid_api_key",
         "authentication",
         "permission",
+        "import error",
+        "no module named",
+        "not installed",
+        "pacote nao instalado",
+        "invalid_argument",
+        "api key invalid",
+        "api_key_invalid",
+        "api key expired",
+        "key expired",
     )
     return any(marker in message for marker in recoverable_markers)
 
@@ -215,10 +224,28 @@ def invoke_agent_with_key_fallback(messages):
             return response
         except Exception as error:
             errors.append(f"{key_name}: {error}")
-            if index == len(providers) or not _looks_like_key_limit_error(error):
-                raise
-
-    raise RuntimeError("Todos os provedores de LLM falharam:\n" + "\n".join(errors))
+            if index == len(providers):
+                erros_str = "\n".join(f"  • {e}" for e in errors)
+                raise RuntimeError(
+                    "⏳ **O assistente Nexus está temporariamente indisponível.**\n\n"
+                    "Todos os provedores de IA falharam. Possíveis causas:\n"
+                    "  • Limite de tokens diário excedido (Groq)\n"
+                    "  • Chave de API inválida ou expirada\n"
+                    "  • Serviço temporariamente fora do ar\n\n"
+                    "**Sugestões:**\n"
+                    "  • Aguarde alguns minutos e tente novamente\n"
+                    "  • Renove as chaves de API no arquivo `.env`\n"
+                    "  • Contate o administrador do sistema\n\n"
+                    f"Detalhes técnicos:\n{erros_str}"
+                )
+            if not _looks_like_key_limit_error(error):
+                raise RuntimeError(
+                    "❌ **Erro no provedor de IA:**\n\n"
+                    f"O provedor `{key_name}` falhou com um erro não recuperável.\n\n"
+                    f"Detalhe: `{error}`\n\n"
+                    "Tente novamente ou configure outro provedor no `.env`."
+                )
+    raise RuntimeError(mensagem_erro)
 
 
 def main():
